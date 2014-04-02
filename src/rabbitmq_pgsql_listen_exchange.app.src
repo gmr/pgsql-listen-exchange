@@ -1,0 +1,17 @@
+{application, rabbitmq_pgsql_listen_exchange,
+ [
+  {description, "RabbitMQ PostgreSQL LISTEN Exchange Plugin"},
+  {vsn, "0.1.0"},
+  {modules, [rabbitmq_pgsql_listen_exchange,
+             rabbitmq_pgsql_listen_lib,
+             rabbitmq_pgsql_listen_sup,
+             rabbitmq_pgsql_listen_worker]},
+  {registered, []},
+  {env, [{host, <<"localhost">>},
+         {port, <<"5432">>},
+         {dbname, <<"postgres">>},
+         {password, <<"">>},
+         {username, <<"postgres">>}]},
+  {applications, [kernel, stdlib, rabbit, epgsql, amqp_client]}
+ ]
+}.
