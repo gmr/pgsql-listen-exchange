@@ -7,7 +7,15 @@ Notes
 -----
 
 - The exchange name should match the PostgreSQL channel notifications are sent to.
-- Queues should be bound to the queue with the channel name as well.
+- Queues should be bound to the exchange with the channel name as well.
+- By default, the plugin connects to PostgreSQL as postgres, on localhost port 5432 to the postgres database.
+
+Example
+-------
+
+To publish to an exchange named `test` and queues bound to the exchange with a routing key of `test`, run the following command in psql:
+
+  postgres=# NOTIFY test, 'This is a test';
 
 Building
 --------
@@ -34,3 +42,4 @@ Todo
 - Investigate adding policy ability
 - Document configuration
 - Build binary distributions for RabbitMQ versions
+- Move to mirrored supervisor
