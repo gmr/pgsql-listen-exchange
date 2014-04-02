@@ -15,7 +15,7 @@ Example
 
 To publish to an exchange named `test` and queues bound to the exchange with a routing key of `test`, run the following command in psql:
 
-  postgres=# NOTIFY test, 'This is a test';
+    postgres=# NOTIFY test, 'This is a test';
 
 Building
 --------
