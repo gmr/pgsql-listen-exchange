@@ -11,7 +11,7 @@
          {port, <<"5432">>},
          {dbname, <<"postgres">>},
          {password, <<"">>},
-         {username, <<"postgres">>}]},
+         {user, <<"postgres">>}]},
   {applications, [kernel, stdlib, rabbit, epgsql, amqp_client]}
  ]
 }.
