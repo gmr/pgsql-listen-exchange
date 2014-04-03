@@ -27,26 +27,28 @@ code_change(_, State, _) ->
   {ok, State}.
 
 handle_call({create, X}, _From, State) ->
-  {Response, Conns} = rabbitmq_pgsql_listen_lib:get_pgsql_client(X, State),
-  {reply, Response, {state, {Conns}}};
+  get_pgsql_client(X, State);
+
+handle_call({validate, X}, _From, State) ->
+  get_pgsql_client(X, State);
 
 handle_call(_Msg, _From, _State) ->
   {noreply, unknown_command, _State}.
 
 handle_cast({add_binding, Tx, X, B}, State) ->
-  rabbit_log:info("add_binding: ~p, ~p, ~p ~p~n", [Tx, X, B, State]),
+  %%rabbit_log:info("add_binding: ~p, ~p, ~p ~p~n", [Tx, X, B, State]),
   {noreply, State};
 
 handle_cast({delete, Tx, X, Bs}, State) ->
-  rabbit_log:info("delete: ~p, ~p, ~p ~p~n", [Tx, X, Bs, State]),
+  %%rabbit_log:info("delete: ~p, ~p, ~p ~p~n", [Tx, X, Bs, State]),
   {noreply, State};
 
 handle_cast({policy_changed, X1, X2}, State) ->
-  rabbit_log:info("policy_changed: ~p, ~p, ~p~n", [X1, X2, State]),
+  %%rabbit_log:info("policy_changed: ~p, ~p, ~p~n", [X1, X2, State]),
   {noreply, State};
 
 handle_cast({remove_bindings, Tx, X, Bs}, State) ->
-  rabbit_log:info("remove_bindings: ~p, ~p, ~p ~p~n", [Tx, X, Bs, State]),
+  %%rabbit_log:info("remove_bindings: ~p, ~p, ~p ~p~n", [Tx, X, Bs, State]),
   {noreply, State};
 
 handle_cast(Cast, State) ->
@@ -69,3 +71,15 @@ handle_info(Message, State) ->
 
 terminate(_, {state, {Connections}}) ->
   ok.
+
+%-----------------
+% Internal Methods
+%-----------------
+
+get_pgsql_client(X, State) ->
+  case rabbitmq_pgsql_listen_lib:get_pgsql_client(X, State) of
+    {ok, Conns} ->
+      {reply, ok, {state, {Conns}}};
+    {error, Reason, Conns} ->
+      {reply, {error, Reason}, {state, {Conns}}}
+  end.

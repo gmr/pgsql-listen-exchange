@@ -37,7 +37,13 @@ assert_args_equivalence(X, Args) ->
   rabbit_exchange:assert_args_equivalence(X, Args).
 
 create(_, X) ->
-  gen_server:call(rabbitmq_pgsql_listen, {create, X}).
+case gen_server:call(rabbitmq_pgsql_listen, {create, X}) of
+  ok -> ok;
+  {error, Reason} ->
+    rabbit_misc:protocol_error(resource_error,
+                               "postgresql connection failed: ~s",
+                               [Reason])
+end.
 
 description() ->
   [{name, ?X_TYPE}, {description, ?X_DESC}].
@@ -68,24 +74,13 @@ serialise_events() ->
   false.
 
 validate(X) ->
-  Exchange = exchange_type(X),
-  Exchange:validate(X).
+  case gen_server:call(rabbitmq_pgsql_listen, {validate, X}) of
+    ok -> ok;
+    {error, Reason} ->
+      rabbit_misc:protocol_error(resource_error,
+                                 "postgresql connection failed: ~s",
+                                 [Reason])
+  end.
 
 validate_binding(_X, _B) ->
   ok.
-
-% ----------------
-% Internal Methods
-% ----------------
-
-exchange_type(#exchange{arguments=Args}) ->
-  case lists:keyfind(<<"type-module">>, 1, Args) of
-    {<<"type-module">>, _, Type} ->
-      case list_to_atom(binary_to_list(Type)) of
-        rabbitmq_pgsql_listen ->
-          error_logger:error_report(?VALIDATE_ERROR),
-          rabbit_exchange_type_direct;
-        Else -> Else
-      end;
-    _ -> rabbit_exchange_type_direct
-  end.
