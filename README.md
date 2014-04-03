@@ -27,7 +27,7 @@ Building
     cd epgsql-wrapper
     ./build.sh
     cd ..
-    git clone https://github.com/gmr/rabbitmq-pgsql-listen-exchange.git
+    git clone https://github.com/aweber/rabbitmq-pgsql-listen-exchange.git
     cd rabbitmq-pgsql-listen-exchange
     make
 
