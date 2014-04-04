@@ -23,7 +23,7 @@ publish_message(Conn, Rk, Body, Xs) ->
   {resource, VHost, exchange, Name} = X#exchange.name,
   {Connection, Channel} = get_amqp_connection(VHost),
   {Host, Port, _, _, DB} = get_pgsql_params(X#exchange.arguments),
-  C = lists:merge([integer_to_list(Port), ":", Host]),
+  C = lists:flatten([Host, ":", integer_to_list(Port)]),
   BasicPublish = #'basic.publish'{exchange=Name, routing_key=Rk},
   Properties = #'P_basic'{app_id = <<"rabbitmq-pgsql-listen-exchange">>,
                           delivery_mode = 1,
