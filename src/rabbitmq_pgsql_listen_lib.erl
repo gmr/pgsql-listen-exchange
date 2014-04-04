@@ -1,70 +1,72 @@
 -module(rabbitmq_pgsql_listen_lib).
 
--export([get_pgsql_client/2,
+-export([close_pgsql_client/2,
+         get_pgsql_client/2,
          pgsql_listen/4,
          pgsql_unlisten/4,
-         publish_message/4]).
+         publish_notification/4]).
 
 -include("rabbitmq_pgsql_listen.hrl").
 -include_lib("amqp_client/include/amqp_client.hrl").
 -include_lib("epgsql/include/pgsql.hrl").
 
-close_pgsql_client() ->
-  ok.
+close_pgsql_client(X, Cs) ->
+  case dict:find(X#exchange.name, Cs) of
+    {ok, Conn} ->
+      pgsql:close(Conn),
+      dict:erase(X#exchange.name, Cs);
+    error ->
+      Cs
+    end.
 
 get_pgsql_client(X, Cs) ->
   {Host, Port, User, Pass, DB} = get_pgsql_params(X#exchange.arguments),
-  Key = get_connection_key(Host, Port, User, Pass, DB),
-  case dict:find(Key, Cs) of
+  case dict:find(X#exchange.name, Cs) of
     {ok, Conn} ->
       {ok, Cs, Conn};
     error ->
       case create_pgsql_client(Host, Port, User, Pass, DB) of
         {ok, Conn} ->
-          New = dict:store(Key, Conn, Cs),
-          {ok, New, Conn};
+          NCs = dict:store(X#exchange.name, Conn, Cs),
+          {ok, NCs, Conn};
         {error, {{_, {error, Reason}}, _}} ->
           {error, Reason}
       end
   end.
 
-pgsql_listen(Conn, X, B, Xs) ->
-  {ok, _, _} = pgsql:squery(Conn, "LISTEN " ++ binary_to_list(B#binding.key)),
-  case lists_find({Conn, B#binding.key, X}, Xs) of
-    true ->
-      {ok, Xs};
-    false ->
-      {ok, lists:append([Xs, [{Conn, B#binding.key, X}]])}
-  end.
-
-pgsql_unlisten(Conn, X, B, Xs) ->
-  case lists_find({Conn, B#binding.key, X}, Xs) of
-    true ->
-      {ok, _, _} = pgsql:squery(Conn, "UNLISTEN " ++ binary_to_list(B#binding.key)),
-      NXs = [E || E <- Xs, not E == {Conn, B#binding.key, X}],
-      rabbit_log:info('unlisten Xs: ~p~n', [NXs]),
-      {ok, NXs};
-    false ->
+pgsql_listen(X, B, Cs, Xs) ->
+  case dict:find(X#exchange.name, Cs) of
+    {ok, Conn} ->
+      {ok, _, _} = pgsql:squery(Conn, "LISTEN " ++ binary_to_list(B#binding.key)),
+      case lists_find({Conn, B#binding.key, X}, Xs) of
+        true ->
+          {ok, Xs};
+        false ->
+          {ok, lists:append([Xs, [{Conn, B#binding.key, X}]])}
+      end;
+    error ->
+      rabbit_log:error("Did not find pgsql connection for ~p~n", [X#exchange.name]),
       error
   end.
 
-publish_message(Conn, Rk, Body, Xs) ->
-  X = find_exchange(Conn, Rk, Xs),
-  {resource, VHost, exchange, Name} = X#exchange.name,
-  {Connection, Channel} = get_amqp_connection(VHost),
-  {Host, Port, _, _, DB} = get_pgsql_params(X#exchange.arguments),
-  C = lists:flatten([Host, ":", integer_to_list(Port)]),
-  BasicPublish = #'basic.publish'{exchange=Name, routing_key=Rk},
-  Properties = #'P_basic'{app_id = <<"rabbitmq-pgsql-listen-exchange">>,
-                          delivery_mode = 1,
-                          headers = [{<<"server">>, longstr, list_to_binary(C)},
-                                     {<<"database">>, longstr, list_to_binary(DB)}],
-                          timestamp = current_timestamp()},
-  amqp_channel:call(Channel,
-                    BasicPublish,
-                    #amqp_msg{props=Properties, payload=Body}),
-  amqp_channel:call(Channel, #'channel.close'{}),
-  amqp_connection:close(Connection).
+pgsql_unlisten(X, B, Cs, Xs) ->
+  case dict:find(X#exchange.name, Cs) of
+    {ok, Conn} ->
+      case lists_find({Conn, B#binding.key, X}, Xs) of
+        true ->
+          {ok, _, _} = pgsql:squery(Conn, "UNLISTEN " ++ binary_to_list(B#binding.key)),
+          {ok, [E || E <- Xs, E =/= {Conn, B#binding.key, X}]};
+        false ->
+          error
+      end;
+  error ->
+    rabbit_log:error("Did not find pgsql connection for ~p~n", [X#exchange.name]),
+    error
+end.
+
+publish_notification(Conn, Rk, Body, Xs) ->
+  X = [X || {_, R, X} <- [{C, R, X} || {C, R, X} <- Xs, C =:= Conn], R == Rk],
+  publish_message(Rk, Body, X).
 
 %------------------
 % Internal Methods
@@ -136,17 +138,6 @@ get_pgsql_params(Args) ->
   DBName = get_param(Args, "dbname", ?DEFAULT_DBNAME),
   {Host, Port, User, Pass, DBName}.
 
-find_exchange(_, _, []) ->
-    false;
-
-find_exchange(Conn, RK, [{Conn, Key, Value} | ListTail]) ->
-    case (RK == Key) of
-        true when Conn == Conn ->
-          Value;
-        _ ->
-          find_exchange(Conn, RK, ListTail)
-    end.
-
 lists_find(_, []) ->
     false;
 
@@ -157,3 +148,25 @@ lists_find(Element, [Item | ListTail]) ->
         false ->
           lists_find(Element, ListTail)
     end.
+
+publish_message(_Rk, _B, []) ->
+  false;
+
+publish_message(Rk, Body, [X|ListTail]) ->
+  {resource, VHost, exchange, Name} = X#exchange.name,
+  {Conn, Chan} = get_amqp_connection(VHost),
+  {Host, Port, _, _, DB} = get_pgsql_params(X#exchange.arguments),
+  C = lists:flatten([Host, ":", integer_to_list(Port)]),
+  BasicPublish = #'basic.publish'{exchange=Name, routing_key=Rk},
+  Properties = #'P_basic'{app_id = <<"rabbitmq-pgsql-listen-exchange">>,
+                          delivery_mode = 1,
+                          headers = [{<<"server">>, longstr, list_to_binary(C)},
+                                     {<<"database">>, longstr, list_to_binary(DB)},
+                                     {<<"channel">>, longstr, Rk}],
+                          timestamp = current_timestamp()},
+  amqp_channel:call(Chan,
+                    BasicPublish,
+                    #amqp_msg{props=Properties, payload=Body}),
+  amqp_channel:call(Chan, #'channel.close'{}),
+  amqp_connection:close(Conn),
+  publish_message(Rk, Body, ListTail).

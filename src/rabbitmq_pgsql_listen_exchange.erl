@@ -55,11 +55,10 @@ create(_, _) ->
 description() ->
   [{name, ?X_TYPE}, {description, ?X_DESC}].
 
-delete(none, _, _) ->
-  ok;
+delete(none, X, Bs) ->
+  gen_server:call(rabbitmq_pgsql_listen, {delete, X, Bs});
 
-delete(_, X, Bs) ->
-  gen_server:cast(rabbitmq_pgsql_listen, {delete, X, Bs}),
+delete(_, _, _) ->
   ok.
 
 policy_changed(_, _) ->
@@ -68,8 +67,11 @@ policy_changed(_, _) ->
 recover(_, _) ->
   ok.
 
-remove_bindings(_, X, Bs) ->
+remove_bindings(none, X, Bs) ->
   gen_server:cast(rabbitmq_pgsql_listen, {remove_bindings, X, Bs}),
+  ok;
+
+remove_bindings(_, _, _) ->
   ok.
 
 route(X, Delivery) ->

@@ -58,7 +58,6 @@ You can also change the default connection values in the rabbitmq.config file:
 Todo
 ----
 
-- Close PostgreSQL connections when all bindings are removed
 - Persist AMQP connections per exchange
 - Investigate adding policy ability
 - Build binary distributions for RabbitMQ versions

@@ -28,6 +28,11 @@ code_change(_, State, _) ->
 handle_call({create, X}, _From, State) ->
   connect_pgsql_client(X, State);
 
+handle_call({delete, X, Bs}, _From, {state, {Cs, Xs}}) ->
+  NXs = remove_binding(X, Cs, Xs, Bs),
+  NCs = rabbitmq_pgsql_listen_lib:close_pgsql_client(X, Cs),
+  {reply, ok, {state, {NCs, NXs}}};
+
 handle_call({validate, X}, _From, State) ->
   connect_pgsql_client(X, State);
 
@@ -35,10 +40,9 @@ handle_call(_Msg, _From, _State) ->
   {noreply, unknown_command, _State}.
 
 handle_cast({add_binding, X, B}, {state, {Cs, Xs}}) ->
-  case rabbitmq_pgsql_listen_lib:get_pgsql_client(X, Cs) of
-    {ok, Conns, Conn} ->
-      {ok, NXs} = rabbitmq_pgsql_listen_lib:pgsql_listen(Conn, X, B, Xs),
-      {noreply, {state, {Conns, NXs}}};
+  case rabbitmq_pgsql_listen_lib:pgsql_listen(X, B, Cs, Xs) of
+    {ok, NXs} ->
+      {noreply, {state, {Cs, NXs}}};
     _ ->
       {noreply, {state, {Cs, Xs}}}
   end;
@@ -47,15 +51,12 @@ handle_cast({remove_bindings, X, Bs}, {state, {Cs, Xs}}) ->
   NXs = remove_binding(X, Cs, Xs, Bs),
   {noreply, {state, {Cs, NXs}}};
 
-handle_cast({delete, _X, _}, State) ->
-  {noreply, State};
-
 handle_cast(Cast, State) ->
   rabbit_log:info("Unknown handle_cast: ~p, ~p~n", [Cast, State]),
   {noreply, State}.
 
 handle_info({pgsql, Conn, {notification, Channel, _, Payload}}, {state, {Cs, Xs}}) ->
-  rabbitmq_pgsql_listen_lib:publish_message(Conn, Channel, Payload, Xs),
+  rabbitmq_pgsql_listen_lib:publish_notification(Conn, Channel, Payload, Xs),
   {noreply, {state, {Cs, Xs}}};
 
 handle_info(Message, State) ->
@@ -71,8 +72,8 @@ terminate(_,_) ->
 
 connect_pgsql_client(X, {state, {Cs, Xs}}) ->
   case rabbitmq_pgsql_listen_lib:get_pgsql_client(X, Cs) of
-    {ok, Conns, _} ->
-      {reply, ok, {state, {Conns, Xs}}};
+    {ok, NCs, _} ->
+      {reply, ok, {state, {NCs, Xs}}};
     {error, Reason} ->
       {reply, {error, Reason}, {state, {Cs, Xs}}}
   end.
@@ -81,14 +82,8 @@ remove_binding(_, _, Xs, []) ->
   Xs;
 
 remove_binding(X, Cs, Xs, [B | ListTail]) ->
-  case rabbitmq_pgsql_listen_lib:get_pgsql_client(X, Cs) of
-    {ok, Conns, Conn} ->
-      case rabbitmq_pgsql_listen_lib:pgsql_unlisten(Conn, X, B, Xs) of
-        {ok, []} -> [];
-        {ok, NXs} -> remove_binding(X, Cs, NXs, ListTail);
-        error -> Xs
-      end;
-    _ ->
-      rabbit_log:error("Could not find pgsql_client for ~p~n", [X]),
-      Xs
+  case rabbitmq_pgsql_listen_lib:pgsql_unlisten(X, B, Cs, Xs) of
+    {ok, []} -> [];
+    {ok, NXs} -> remove_binding(X, Cs, NXs, ListTail);
+    error -> Xs
   end.
