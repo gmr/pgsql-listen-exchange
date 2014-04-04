@@ -29,43 +29,48 @@
 % Exchange Methods exposed to RabbitMQ
 % ------------------------------------
 
-add_binding(Tx, X, B) ->
-  gen_server:cast(rabbitmq_pgsql_listen, {add_binding, Tx, X, B}),
-  rabbit_exchange_type_direct:add_binding(Tx, X, B).
+add_binding(none, X, B) ->
+  gen_server:cast(rabbitmq_pgsql_listen, {add_binding, X, B}),
+  ok;
+
+add_binding(_, _, _) ->
+  ok.
 
 assert_args_equivalence(X, Args) ->
   rabbit_exchange:assert_args_equivalence(X, Args).
 
-create(_, X) ->
-case gen_server:call(rabbitmq_pgsql_listen, {create, X}) of
-  ok -> ok;
-  {error, Reason} ->
-    rabbit_misc:protocol_error(resource_error,
-                               "postgresql connection failed: ~s",
-                               [Reason])
-end.
+create(none, X) ->
+  case gen_server:call(rabbitmq_pgsql_listen, {create, X}) of
+    ok -> ok;
+    {error, Reason} ->
+      rabbit_log:error("postgresql connection failed: ~s", [Reason]),
+      rabbit_misc:protocol_error(resource_error,
+                                 "postgresql connection failed: ~s",
+                                 [Reason])
+  end;
+
+create(_, _) ->
+  ok.
 
 description() ->
   [{name, ?X_TYPE}, {description, ?X_DESC}].
 
-delete(none, _X, _Bs) ->
+delete(none, _, _) ->
   ok;
 
-delete(Tx, X, Bs) ->
-  gen_server:cast(rabbitmq_pgsql_listen, {delete, Tx, X, Bs}),
+delete(_, X, Bs) ->
+  gen_server:cast(rabbitmq_pgsql_listen, {delete, X, Bs}),
   ok.
 
-policy_changed(X1, X2) ->
-  gen_server:cast(rabbitmq_pgsql_listen, {policy_changed, X1, X2}),
+policy_changed(_, _) ->
   ok.
 
-recover(X, Bs) ->
-  rabbit_log:info("rabbitmq-pgsql-listen-exchange recover: ~p, ~p~n", [X, Bs]),
-  create(none, X).
+recover(_, _) ->
+  ok.
 
-remove_bindings(Tx, X, Bs) ->
-  gen_server:cast(rabbitmq_pgsql_listen, {remove_bindings, Tx, X, Bs}),
-  rabbit_exchange_type_direct:remove_bindings(Tx, X, Bs).
+remove_bindings(_, X, Bs) ->
+  gen_server:cast(rabbitmq_pgsql_listen, {remove_bindings, X, Bs}),
+  ok.
 
 route(X, Delivery) ->
   rabbit_exchange_type_direct:route(X, Delivery).
@@ -77,6 +82,7 @@ validate(X) ->
   case gen_server:call(rabbitmq_pgsql_listen, {validate, X}) of
     ok -> ok;
     {error, Reason} ->
+      rabbit_log:error("postgresql connection failed: ~s", [Reason]),
       rabbit_misc:protocol_error(resource_error,
                                  "postgresql connection failed: ~s",
                                  [Reason])

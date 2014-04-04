@@ -17,69 +17,59 @@ start_link() ->
 init([]) ->
   register(rabbitmq_pgsql_listen, self()),
   rabbit_log:info("rabbitmq-pgsql-listen-exchange worker: started (~p)~n", [self()]),
-  {ok,  {state, {dict:new()}}}.
+  {ok,  {state, {dict:new(), []}}}.
 
 %---------------------------
 % Gen Server Implementation
 % --------------------------
-
 code_change(_, State, _) ->
   {ok, State}.
 
 handle_call({create, X}, _From, State) ->
-  get_pgsql_client(X, State);
+  connect_pgsql_client(X, State);
 
 handle_call({validate, X}, _From, State) ->
-  get_pgsql_client(X, State);
+  connect_pgsql_client(X, State);
 
 handle_call(_Msg, _From, _State) ->
   {noreply, unknown_command, _State}.
 
-handle_cast({add_binding, Tx, X, B}, State) ->
-  %%rabbit_log:info("add_binding: ~p, ~p, ~p ~p~n", [Tx, X, B, State]),
-  {noreply, State};
+handle_cast({add_binding, X, B}, {state, {Cs, Xs}}) ->
+  case rabbitmq_pgsql_listen_lib:get_pgsql_client(X, Cs) of
+    {ok, Conns, Conn} ->
+      {ok, NXs} = rabbitmq_pgsql_listen_lib:pgsql_listen(Conn, X, B, Xs),
+      rabbit_log:info("Xs: ~p~n", [NXs]),
+      {noreply, {state, {Conns, NXs}}};
+    _ ->
+      {noreply, {state, {Cs, Xs}}}
+  end;
 
-handle_cast({delete, Tx, X, Bs}, State) ->
-  %%rabbit_log:info("delete: ~p, ~p, ~p ~p~n", [Tx, X, Bs, State]),
-  {noreply, State};
-
-handle_cast({policy_changed, X1, X2}, State) ->
-  %%rabbit_log:info("policy_changed: ~p, ~p, ~p~n", [X1, X2, State]),
-  {noreply, State};
-
-handle_cast({remove_bindings, Tx, X, Bs}, State) ->
-  %%rabbit_log:info("remove_bindings: ~p, ~p, ~p ~p~n", [Tx, X, Bs, State]),
+handle_cast({delete, _X, _}, State) ->
   {noreply, State};
 
 handle_cast(Cast, State) ->
-  rabbit_log:info("Unknown cast: ~p, ~p~n", [Cast, State]),
+  rabbit_log:info("Unknown handle_cast: ~p, ~p~n", [Cast, State]),
   {noreply, State}.
 
-handle_info({pgsql, Conn, {notification, Channel, _Pid, Payload}},
-            {state, {Connections}}) ->
-  case dict:find(Channel, Connections) of
-    {ok, {VHost, Conn}} ->
-      rabbitmq_pgsql_listen_lib:publish_message(VHost, Channel, Payload);
-    error ->
-      rabbit_log:info("Couldnt find mapping for ~p: ~s\n", [Channel, Payload])
-  end,
-  {noreply, {state, {Connections}}};
+handle_info({pgsql, Conn, {notification, Channel, _, Payload}}, {state, {Cs, Xs}}) ->
+  rabbitmq_pgsql_listen_lib:publish_message(Conn, Channel, Payload, Xs),
+  {noreply, {state, {Cs, Xs}}};
 
 handle_info(Message, State) ->
-  rabbit_log:info("handle_info: ~p~n", Message),
+  rabbit_log:info("unknown handle_info: ~p~n", Message),
   {noreply, State}.
 
-terminate(_, {state, {Connections}}) ->
+terminate(_,_) ->
   ok.
 
 %-----------------
 % Internal Methods
 %-----------------
 
-get_pgsql_client(X, State) ->
-  case rabbitmq_pgsql_listen_lib:get_pgsql_client(X, State) of
-    {ok, Conns} ->
-      {reply, ok, {state, {Conns}}};
-    {error, Reason, Conns} ->
-      {reply, {error, Reason}, {state, {Conns}}}
+connect_pgsql_client(X, {state, {Cs, Xs}}) ->
+  case rabbitmq_pgsql_listen_lib:get_pgsql_client(X, Cs) of
+    {ok, Conns, _} ->
+      {reply, ok, {state, {Conns, Xs}}};
+    {error, Reason} ->
+      {reply, {error, Reason}, {state, {Cs, Xs}}}
   end.

@@ -1,25 +1,34 @@
 -module(rabbitmq_pgsql_listen_lib).
 
--export([get_pgsql_client/2, publish_message/3]).
+-export([get_pgsql_client/2, pgsql_listen/4, publish_message/4]).
 
 -include("rabbitmq_pgsql_listen.hrl").
 -include_lib("amqp_client/include/amqp_client.hrl").
 -include_lib("epgsql/include/pgsql.hrl").
 
-get_pgsql_client(#exchange{arguments=Args, name=Name}, {state, {Connections}}) ->
-  {Host, Port, User, Pass, DB} = get_pgsql_params(Args),
-  case get_pgsql_connection(Connections, Name, Host, Port, User, Pass, DB) of
-    {ok, Conns} ->
-      {ok, Conns};
-    {error, Reason} ->
-      {error, Reason, Connections}
+get_pgsql_client(X, Cs) ->
+  get_pgsql_connection(Cs, X).
+
+pgsql_listen(Conn, X, B, Xs) ->
+  {ok, _, _} = pgsql:squery(Conn, "LISTEN " ++ binary_to_list(B#binding.key)),
+  case lists_find({Conn, B#binding.key, X}, Xs) of
+    true ->
+      {ok, Xs};
+    false ->
+      {ok, lists:append([Xs, [{Conn, B#binding.key, X}]])}
   end.
 
-publish_message(VHost, X, Body) ->
+publish_message(Conn, Rk, Body, Xs) ->
+  X = find_exchange(Conn, Rk, Xs),
+  {resource, VHost, exchange, Name} = X#exchange.name,
   {Connection, Channel} = get_amqp_connection(VHost),
-  BasicPublish = #'basic.publish'{exchange=X, routing_key=X},
+  {Host, Port, _, _, DB} = get_pgsql_params(X#exchange.arguments),
+  C = lists:merge([integer_to_list(Port), ":", Host]),
+  BasicPublish = #'basic.publish'{exchange=Name, routing_key=Rk},
   Properties = #'P_basic'{app_id = <<"rabbitmq-pgsql-listen-exchange">>,
                           delivery_mode = 1,
+                          headers = [{<<"server">>, longstr, list_to_binary(C)},
+                                     {<<"database">>, longstr, list_to_binary(DB)}],
                           timestamp = current_timestamp()},
   amqp_channel:call(Channel,
                     BasicPublish,
@@ -50,6 +59,9 @@ get_amqp_connection(VHost) ->
   {ok, Connection} = amqp_connection:start(#amqp_params_direct{virtual_host=VHost}),
   {ok, Channel} = amqp_connection:open_channel(Connection),
   {Connection, Channel}.
+
+get_connection_key(Host, Port, User, Pass, DB) ->
+  list_to_atom(lists:concat([Host, ".", integer_to_list(Port), ".", User, ".", Pass, ".", DB])).
 
 get_env(EnvVar, DefaultValue) ->
   case application:get_env(rabbitmq_pgsql_listen, EnvVar) of
@@ -86,23 +98,18 @@ get_param_value(Args, Name, Default) ->
             _ -> get_param_list_value(get_param_env_value(Name, Default))
   end.
 
-get_pgsql_connection(Connections, X, Host, Port, User, Pass, DB) ->
-  {resource, VHost, exchange, Name} = X,
-  Channel = binary_to_list(Name),
-  case dict:find(Name, Connections) of
-    {ok, {VHost, Conn}} ->
-      ok = pgsql_listen(Conn, binary_to_list(Name)),
-      {ok, Connections};
+get_pgsql_connection(Cs, X) ->
+  {Host, Port, User, Pass, DB} = get_pgsql_params(X#exchange.arguments),
+  Key = get_connection_key(Host, Port, User, Pass, DB),
+  case dict:find(Key, Cs) of
+    {ok, Conn} ->
+      {ok, Cs, Conn};
     error ->
-      rabbit_log:info("~p ~p ~p ~p ~p", [Host, Port, User, Pass, DB]),
       case create_pgsql_client(Host, Port, User, Pass, DB) of
         {ok, Conn} ->
-          New = dict:store(Name, {VHost, Conn}, Connections),
-          ok = pgsql_listen(Conn, Channel),
-          {ok, New};
+          New = dict:store(Key, Conn, Cs),
+          {ok, New, Conn};
         {error, {{_, {error, Reason}}, _}} ->
-          rabbit_log:error("Error connecting to PostgreSQL on ~p:~p as ~p: ~p",
-                           [Host, Port, User, Reason]),
           {error, Reason}
       end
   end.
@@ -115,16 +122,24 @@ get_pgsql_params(Args) ->
   DBName = get_param(Args, "dbname", ?DEFAULT_DBNAME),
   {Host, Port, User, Pass, DBName}.
 
-pgsql_listen(Connection, Channel) ->
-  {ok, _, _} = pgsql:squery(Connection, "LISTEN " ++ Channel),
-  ok.
+find_exchange(_, _, []) ->
+    false;
 
-select_exchange(Exchange, VHost, Channel) ->
-  Name = Exchange#exchange.name,
-  case Name of
-    {resource, VHost, exchange, Channel} ->
-      Exchange;
-    _ ->
-      rabbit_log:info("Exchange: ~p~n", [Name]),
-      null
-  end.
+find_exchange(Conn, RK, [{Conn, Key, Value} | ListTail]) ->
+    case (RK == Key) of
+        true when Conn == Conn ->
+          Value;
+        _ ->
+          find_exchange(Conn, RK, ListTail)
+    end.
+
+lists_find(_, []) ->
+    false;
+
+lists_find(Element, [Item | ListTail]) ->
+    case (Item == Element) of
+        true ->
+          true;
+        false ->
+          lists_find(Element, ListTail)
+    end.

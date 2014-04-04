@@ -60,7 +60,6 @@ Todo
 
 - Close PostgreSQL connections when all bindings are removed
 - Persist AMQP connections per exchange
-- Add PostgreSQL server information to headers (host, port, dbname)
 - Investigate adding policy ability
 - Build binary distributions for RabbitMQ versions
 - Move to mirrored supervisor
