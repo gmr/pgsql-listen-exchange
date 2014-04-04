@@ -1,13 +1,32 @@
 -module(rabbitmq_pgsql_listen_lib).
 
--export([get_pgsql_client/2, pgsql_listen/4, publish_message/4]).
+-export([get_pgsql_client/2,
+         pgsql_listen/4,
+         pgsql_unlisten/4,
+         publish_message/4]).
 
 -include("rabbitmq_pgsql_listen.hrl").
 -include_lib("amqp_client/include/amqp_client.hrl").
 -include_lib("epgsql/include/pgsql.hrl").
 
+close_pgsql_client() ->
+  ok.
+
 get_pgsql_client(X, Cs) ->
-  get_pgsql_connection(Cs, X).
+  {Host, Port, User, Pass, DB} = get_pgsql_params(X#exchange.arguments),
+  Key = get_connection_key(Host, Port, User, Pass, DB),
+  case dict:find(Key, Cs) of
+    {ok, Conn} ->
+      {ok, Cs, Conn};
+    error ->
+      case create_pgsql_client(Host, Port, User, Pass, DB) of
+        {ok, Conn} ->
+          New = dict:store(Key, Conn, Cs),
+          {ok, New, Conn};
+        {error, {{_, {error, Reason}}, _}} ->
+          {error, Reason}
+      end
+  end.
 
 pgsql_listen(Conn, X, B, Xs) ->
   {ok, _, _} = pgsql:squery(Conn, "LISTEN " ++ binary_to_list(B#binding.key)),
@@ -16,6 +35,17 @@ pgsql_listen(Conn, X, B, Xs) ->
       {ok, Xs};
     false ->
       {ok, lists:append([Xs, [{Conn, B#binding.key, X}]])}
+  end.
+
+pgsql_unlisten(Conn, X, B, Xs) ->
+  case lists_find({Conn, B#binding.key, X}, Xs) of
+    true ->
+      {ok, _, _} = pgsql:squery(Conn, "UNLISTEN " ++ binary_to_list(B#binding.key)),
+      NXs = [E || E <- Xs, not E == {Conn, B#binding.key, X}],
+      rabbit_log:info('unlisten Xs: ~p~n', [NXs]),
+      {ok, NXs};
+    false ->
+      error
   end.
 
 publish_message(Conn, Rk, Body, Xs) ->
@@ -96,22 +126,6 @@ get_param_value(Args, Name, Default) ->
   case lists:keyfind(list_to_binary("x-" ++ Name), 1, Args) of
     {_, _, V} -> get_param_list_value(V);
             _ -> get_param_list_value(get_param_env_value(Name, Default))
-  end.
-
-get_pgsql_connection(Cs, X) ->
-  {Host, Port, User, Pass, DB} = get_pgsql_params(X#exchange.arguments),
-  Key = get_connection_key(Host, Port, User, Pass, DB),
-  case dict:find(Key, Cs) of
-    {ok, Conn} ->
-      {ok, Cs, Conn};
-    error ->
-      case create_pgsql_client(Host, Port, User, Pass, DB) of
-        {ok, Conn} ->
-          New = dict:store(Key, Conn, Cs),
-          {ok, New, Conn};
-        {error, {{_, {error, Reason}}, _}} ->
-          {error, Reason}
-      end
   end.
 
 get_pgsql_params(Args) ->
