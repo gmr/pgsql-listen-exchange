@@ -61,4 +61,3 @@ Todo
 - Persist AMQP connections per exchange
 - Investigate adding policy ability
 - Build binary distributions for RabbitMQ versions
-- Move to mirrored supervisor

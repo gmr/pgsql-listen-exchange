@@ -20,10 +20,9 @@
 
 -rabbit_boot_step({?MODULE,
   [{description, ?X_DESC},
-   {mfa,         {rabbit_sup, start_child, [rabbitmq_pgsql_listen_sup]}},
    {mfa,         {rabbit_registry, register, [exchange, ?X_TYPE, ?MODULE]}},
    {requires,    rabbit_registry},
-   {enables,     kernel_ready}]}).
+   {enables,     recovery}]}).
 
 % ------------------------------------
 % Exchange Methods exposed to RabbitMQ
