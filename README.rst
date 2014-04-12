@@ -12,6 +12,21 @@ a routing key of ``test``, run the following command in psql::
 
     postgres=# NOTIFY test, 'This is a test';
 
+Download
+--------
+To download the pgsql-listen exchange, select the appropriate file that matches
+the RabbitMQ version you are running:
+
++---------+-----------------------------------+
+| Version | URL                               |
++=========+===================================+
++---------+-----------------------------------+
+
+Installation
+------------
+Extract the contents of the zip file into your RabbitMQ plugins directory. Once
+extracted, run ``rabbitmq-plugins enable pgsql-listen-exchange``.
+
 Configuration
 -------------
 
@@ -22,44 +37,57 @@ To connect to PostgreSQL using something other than the default
 add arguments when declaring the exchange:
 
 +--------------+--------------------------------------+-----------+
-| Setting    	| Description                        	| Data Type |
+| Setting      | Description                          | Data Type |
++==============+======================================+===========+
+| x-host       | The PostgreSQL server hostname       | String    |
 +--------------+--------------------------------------+-----------+
-| x-host     	| The PostgreSQL server hostname     	| String    |
-| x-port     	| The port to connect on             	| Number    |
-| x-dbname   	| The database name to connect to    	| String    |
-| x-user     	| The user to connect as             	| String    |
-| x-password 	| The password to use when connecting	| String    |
+| x-port       | The port to connect on               | Number    |
++--------------+--------------------------------------+-----------+
+| x-dbname     | The database name to connect to      | String    |
++--------------+--------------------------------------+-----------+
+| x-user       | The user to connect as               | String    |
++--------------+--------------------------------------+-----------+
+| x-password   | The password to use when connecting  | String    |
 +--------------+--------------------------------------+-----------+
 
-** Policy Based Configuration **
+**Policy Based Configuration**
 
 To apply configuration via a policy, the following settings are available:
 
-+-------------------------+---------------------------------------+-----------+
-| Key                   	| Description                         	| Data Type |
-+-------------------------+---------------------------------------+-----------+
-| pgsql-listen-host     	| The PostgreSQL server hostname      	| String    |
-| pgsql-listen-port     	| The port to connect on              	| Number    |
-| pgsql-listen-dbname   	| The database name to connect to     	| String    |
-| pgsql-listen-user     	| The user to connect as              	| String    |
-| pgsql-listen-password 	| The password to use when connecting 	| String    |
-+-------------------------+---------------------------------------+-----------+
++-------------------------+--------------------------------------+-----------+
+| Setting                 | Description                          | Data Type |
++=========================+======================================+===========+
+| pgsql-listen-host       | The PostgreSQL server hostname       | String    |
++-------------------------+--------------------------------------+-----------+
+| pgsql-listen-port       | The port to connect on               | Number    |
++-------------------------+--------------------------------------+-----------+
+| pgsql-listen-dbname     | The database name to connect to      | String    |
++-------------------------+--------------------------------------+-----------+
+| pgsql-listen-user       | The user to connect as               | String    |
++-------------------------+--------------------------------------+-----------+
+| pgsql-listen-password   | The password to use when connecting  | String    |
++-------------------------+--------------------------------------+-----------+
 
-** Configuration in rabbitmq.config**
+
+**Configuration in rabbitmq.config**
 
 You can also change the default connection values in the ``rabbitmq.config`` file:
 
-+----------+---------------------------------------+-----------+---------------+
-| Key      | Description                         	| Data Type | Default Value |
-+----------+---------------------------------------+-----------+---------------+
-| host   	| The PostgreSQL server hostname      	| List      | "localhost"   |
-| port   	| The port to connect on              	| Integer   | 5432          |
-| dbname 	| The database name to connect to     	| List      | "postgres"    |
-| user   	| The user to connect as              	| List      | "postgres"    |
-| password | The password to use when connecting 	| List      | ""            |
-+----------+---------------------------------------+-----------+---------------+
++--------------+--------------------------------------+-----------+---------------+
+| Setting      | Description                          | Data Type | Default Value |
++==============+======================================+===========+===============+
+| host         | The PostgreSQL server hostname       | list      | "localhost"   |
++--------------+--------------------------------------+-----------+---------------+
+| port         | The port to connect on               | integer   | 5432          |
++--------------+--------------------------------------+-----------+---------------+
+| dbname       | The database name to connect to      | list      | "postgres"    |
++--------------+--------------------------------------+-----------+---------------+
+| user         | The user to connect as               | list      | "postgres"    |
++--------------+--------------------------------------+-----------+---------------+
+| password     | The password to use when connecting  | list      | ""            |
++--------------+--------------------------------------+-----------+---------------+
 
-*Exaple ``rabbitmq.config``*::
+*Exaple rabbitmq.config*::
 
     [{pgsql_listen_exchange,
       [
@@ -73,7 +101,8 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
 
 Building
 --------
-::
+Steps to custom build a version of the pgsql-listen exchange plugin::
+
     hg clone http://hg.rabbitmq.com/rabbitmq-public-umbrella
     cd rabbitmq-public-umbrella
     make co
