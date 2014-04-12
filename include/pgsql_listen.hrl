@@ -6,7 +6,7 @@
         "Cannot bind a PgSQL Listen exchange to another PgSQL Listen exchange").
 
 -define(DEFAULT_HOST, <<"localhost">>).
--define(DEFAULT_PORT, <<"5432">>).
+-define(DEFAULT_PORT, 5432).
 -define(DEFAULT_USER, <<"postgres">>).
 -define(DEFAULT_PASS, <<"">>).
 -define(DEFAULT_DBNAME, <<"postgres">>).

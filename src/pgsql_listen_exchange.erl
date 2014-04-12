@@ -1,6 +1,6 @@
--module(rabbitmq_pgsql_listen_exchange).
+-module(pgsql_listen_exchange).
 
--include("rabbitmq_pgsql_listen.hrl").
+-include("pgsql_listen.hrl").
 -include_lib("rabbit_common/include/rabbit.hrl").
 
 -behaviour(rabbit_exchange_type).
@@ -29,7 +29,7 @@
 % ------------------------------------
 
 add_binding(none, X, B) ->
-  gen_server:cast(rabbitmq_pgsql_listen, {add_binding, X, B}),
+  gen_server:cast(pgsql_listen, {add_binding, X, B}),
   ok;
 
 add_binding(_, _, _) ->
@@ -39,7 +39,7 @@ assert_args_equivalence(X, Args) ->
   rabbit_exchange:assert_args_equivalence(X, Args).
 
 create(none, X) ->
-  case gen_server:call(rabbitmq_pgsql_listen, {create, X}) of
+  case gen_server:call(pgsql_listen, {create, X}) of
     ok -> ok;
     {error, Reason} ->
       rabbit_log:error("postgresql connection failed: ~s", [Reason]),
@@ -55,32 +55,38 @@ description() ->
   [{name, ?X_TYPE}, {description, ?X_DESC}].
 
 delete(none, X, Bs) ->
-  gen_server:call(rabbitmq_pgsql_listen, {delete, X, Bs});
+  gen_server:call(pgsql_listen, {delete, X, Bs});
 
 delete(_, _, _) ->
   ok.
 
-policy_changed(_, _) ->
-  ok.
+policy_changed(OldX = #exchange{name = Name}, NewX) ->
+  Bs = rabbit_binding:list_for_source(OldX),
+  case gen_server:call(pgsql_listen, {delete, OldX, Bs}) of
+    ok ->
+      create(none, NewX);
+    Else ->
+      Else
+  end.
 
 recover(_, _) ->
   ok.
 
 remove_bindings(none, X, Bs) ->
-  gen_server:cast(rabbitmq_pgsql_listen, {remove_bindings, X, Bs}),
+  gen_server:cast(pgsql_listen, {remove_bindings, X, Bs}),
   ok;
 
 remove_bindings(_, _, _) ->
   ok.
 
 route(X, Delivery) ->
-  rabbit_exchange_type_direct:route(X, Delivery).
+  rabbit_exchange_type_topic:route(X, Delivery).
 
 serialise_events() ->
   false.
 
 validate(X) ->
-  case gen_server:call(rabbitmq_pgsql_listen, {validate, X}) of
+  case gen_server:call(pgsql_listen, {validate, X}) of
     ok -> ok;
     {error, Reason} ->
       rabbit_log:error("postgresql connection failed: ~s", [Reason]),

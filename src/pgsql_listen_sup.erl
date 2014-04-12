@@ -1,14 +1,14 @@
--module(rabbitmq_pgsql_listen_sup).
+-module(pgsql_listen_sup).
 
 -behaviour(mirrored_supervisor).
 
--define(WORKER, rabbitmq_pgsql_listen_worker).
+-define(WORKER, pgsql_listen_worker).
 
 -rabbit_boot_step({pgsql_listen_supervisor,
                    [{description, "PgSQL Listen Supervisor"},
                     {mfa,         {rabbit_sup, start_child, [?MODULE]}},
                     {requires,    kernel_ready},
-                    {enables,     rabbitmq_pgsql_listen_exchange}]}).
+                    {enables,     pgsql_listen_exchange}]}).
 
 -export([init/1]).
 -export([start_link/0]).

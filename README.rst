@@ -117,7 +117,7 @@ Steps to custom build a version of the pgsql-listen exchange plugin:
     cd epgsql-wrapper
     ./build.sh
     cd ..
-    git clone https://github.com/aweber/rabbitmq-pgsql-listen-exchange.git
+    git clone https://github.com/aweber/pgsql-listen-exchange.git
     cd rabbitmq-pgsql-listen-exchange
     make
 
