@@ -85,6 +85,7 @@ publish_notification(Conn, Rk, Body, Xs) ->
 
 remove_binding(_, _, Xs, []) ->
   Xs;
+
 remove_binding(X, Cs, Xs, [B | ListTail]) ->
   case pgsql_unlisten(X, B, Cs, Xs) of
     {ok, []} -> [];
@@ -94,44 +95,52 @@ remove_binding(X, Cs, Xs, [B | ListTail]) ->
 
 validate_host(none) ->
   ok;
+
 validate_host(Value) when is_binary(Value) ->
   ok;
+
 validate_host(Value) ->
   {error, "pgsql-listen-host should be binary, actually was ~p", [Value]}.
 
 validate_port(none) ->
   ok;
+
 validate_port(Value) when is_number(Value) ->
   ok;
+
 validate_port(Value) ->
   {error, "pgsql-listen-port should be a number, actually was ~p", [Value]}.
 
 validate_dbname(none) ->
   ok;
+
 validate_dbname(Value) when is_binary(Value) ->
   ok;
+
 validate_dbname(Value) ->
   {error, "pgsql-listen-dbname should be binary, actually was ~p", [Value]}.
 
 validate_user(none) ->
   ok;
+
 validate_user(Value) when is_binary(Value) ->
   ok;
+
 validate_user(Value) ->
   {error, "pgsql-listen-user should be binary, actually was ~p", [Value]}.
 
 validate_password(none) ->
   ok;
+
 validate_password(Value) when is_binary(Value) ->
   ok;
+
 validate_password(Value) ->
   {error, "pgsql-listen-password should be binary, actually was ~p", [Value]}.
-
 
 %------------------
 % Internal Methods
 %------------------
-
 
 create_pgsql_client(Host, Port, User, [], DB) ->
   pgsql:connect(Host, User, "", [{database, DB}, {port, Port}, {async, self()}]);
@@ -139,24 +148,19 @@ create_pgsql_client(Host, Port, User, [], DB) ->
 create_pgsql_client(Host, Port, User, Pass, DB) ->
   pgsql:connect(Host, User, Pass, [{database, DB}, {port, Port}, {async, self()}]).
 
-
 convert_gregorian_to_julian(GregorianSeconds) ->
   GregorianSeconds - 719528 * 24 * 3600.
-
 
 current_gregorian_timestamp() ->
   calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(now())).
 
-
 current_timestamp() ->
   convert_gregorian_to_julian(current_gregorian_timestamp()).
-
 
 get_amqp_connection(VHost) ->
   {ok, Connection} = amqp_connection:start(#amqp_params_direct{virtual_host=VHost}),
   {ok, Channel} = amqp_connection:open_channel(Connection),
   {Connection, Channel}.
-
 
 get_env(EnvVar, DefaultValue) ->
   case application:get_env(pgsql_listen, EnvVar) of
@@ -165,7 +169,6 @@ get_env(EnvVar, DefaultValue) ->
     {ok, V} ->
       V
   end.
-
 
 get_param(Args, Name, Default) when is_atom(Name) ->
   get_param_value(Args, atom_to_list(Name), Default);
@@ -179,7 +182,6 @@ get_param_env_value(Name, Default) when is_atom(Name) ->
 get_param_env_value(Name, Default) when is_list(Name) ->
   get_env(list_to_atom(Name), Default).
 
-
 get_param_list_value(Value) when is_binary(Value) ->
   binary_to_list(Value);
 
@@ -189,13 +191,11 @@ get_param_list_value(Value) when is_integer(Value) ->
 get_param_list_value(Value) when is_list(Value) ->
   integer_to_list(Value).
 
-
 get_param_value(Args, Name, Default) ->
   case lists:keyfind(list_to_binary("x-" ++ Name), 1, Args) of
     {_, _, V} -> get_param_list_value(V);
             _ -> get_param_list_value(get_param_env_value(Name, Default))
   end.
-
 
 get_pgsql_params(Args) ->
   Host = get_param(Args, "host", ?DEFAULT_HOST),
@@ -205,14 +205,14 @@ get_pgsql_params(Args) ->
   DBName = get_param(Args, "dbname", ?DEFAULT_DBNAME),
   {Host, Port, User, Pass, DBName}.
 
-
 get_pgsql_port(Value) when is_list(Value) ->
   list_to_integer(Value);
+
 get_pgsql_port(Value) when is_number(Value) ->
   Value;
+
 get_pgsql_port(_) ->
   5432.
-
 
 lists_find(_, []) ->
     false;
