@@ -8,7 +8,9 @@ mechanics.
 Example
 -------
 To publish to an exchange named ``test`` and queues bound to the exchange with
-a routing key of ``test``, run the following command in psql::
+a routing key of ``test``, run the following command in psql:
+
+..  code-block:: sql
 
     postgres=# NOTIFY test, 'This is a test';
 
@@ -87,7 +89,9 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
 | password     | The password to use when connecting  | list      | ""            |
 +--------------+--------------------------------------+-----------+---------------+
 
-*Exaple rabbitmq.config*::
+*Exaple rabbitmq.config*
+
+..  code-block:: erlang
 
     [{pgsql_listen_exchange,
       [
@@ -101,7 +105,9 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
 
 Building
 --------
-Steps to custom build a version of the pgsql-listen exchange plugin::
+Steps to custom build a version of the pgsql-listen exchange plugin:
+
+.. code-block:: bash
 
     hg clone http://hg.rabbitmq.com/rabbitmq-public-umbrella
     cd rabbitmq-public-umbrella
