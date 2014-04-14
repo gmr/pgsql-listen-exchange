@@ -89,10 +89,10 @@ add_binding(#exchange{name=Name},
 %% @spec remove_bindings(X, Bs, State) -> Result
 %% @where
 %%       X      = rabbit_types:exchange()
-%%       Bs     =
+%%       Bs     = list90
 %%       State  = #pgsql_listen_state
 %%       Result = {ok, #pgsql_listen_state}
-%% @doc Remove one or more bindings from the exchange
+%% @doc Remove a list of from the exchange
 %% @end
 %%
 remove_bindings(_, [], State) ->
@@ -100,27 +100,6 @@ remove_bindings(_, [], State) ->
 remove_bindings(X, [Binding | ListTail], State) ->
   case remove_binding(X, Binding, State) of
     {ok, NewState} -> remove_bindings(X, ListTail, NewState);
-    {error, Error} -> {error, Error}
-  end.
-
-remove_binding(X=#exchange{name=Name},
-               #binding{key=Key, source={resource, VHost, exchange, _}},
-               State=#pgsql_listen_state{amqp=AMQP,
-                                          channels=Cs,
-                                          pgsql=PgSQL}) ->
-  case unlisten_to_pgsql_channel(Name, binary_to_list(Key), PgSQL) of
-    ok ->
-      case remove_channel_binding_reference(binary_to_list(Key), Name, Cs) of
-        {ok, NCs} ->
-          case maybe_close_amqp_connection(X, VHost, NCs, AMQP) of
-            no_change ->
-              {ok, State#pgsql_listen_state{channels=NCs}};
-            {ok, NAMQP} ->
-              {ok, State#pgsql_listen_state{amqp=NAMQP, channels=NCs}};
-            {error, Error} -> {error, Error}
-          end;
-        {error, Error} -> {error, Error}
-      end;
     {error, Error} -> {error, Error}
   end.
 
@@ -454,6 +433,37 @@ maybe_close_amqp_connection(X, VHost, Channels, AMQP) ->
       stop_amqp_connection(X, VHost, AMQP);
     _ ->
       no_change
+  end.
+
+%% @private
+%% @spec remove_binding(X, Bs, State) -> Result
+%% @where
+%%       X       = rabbit_types:exchange()
+%%       Binding = rabbit_types:binding()
+%%       State   = #pgsql_listen_state
+%%       Result  = {ok, #pgsql_listen_state}
+%% @doc Remove a binding from the exchange
+%% @end
+%%
+remove_binding(X=#exchange{name=Name},
+               #binding{key=Key, source={resource, VHost, exchange, _}},
+               State=#pgsql_listen_state{amqp=AMQP,
+                                          channels=Cs,
+                                          pgsql=PgSQL}) ->
+  case unlisten_to_pgsql_channel(Name, binary_to_list(Key), PgSQL) of
+    ok ->
+      case remove_channel_binding_reference(binary_to_list(Key), Name, Cs) of
+        {ok, NCs} ->
+          case maybe_close_amqp_connection(X, VHost, NCs, AMQP) of
+            no_change ->
+              {ok, State#pgsql_listen_state{channels=NCs}};
+            {ok, NAMQP} ->
+              {ok, State#pgsql_listen_state{amqp=NAMQP, channels=NCs}};
+            {error, Error} -> {error, Error}
+          end;
+        {error, Error} -> {error, Error}
+      end;
+    {error, Error} -> {error, Error}
   end.
 
 %% @private
