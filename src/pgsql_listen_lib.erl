@@ -11,6 +11,7 @@
 -module(pgsql_listen_lib).
 
 -export([add_binding/3,
+         publish_notification/4,
          remove_bindings/3,
          start_exchange/2,
          stop_exchange/2,
@@ -53,6 +54,40 @@ add_binding(#exchange{name=Name},
       end;
     {error, Error} ->
       {error, Error}
+  end.
+
+%% @spec start_exchange(X, State) -> ok
+%% @where
+%%       Conn    = pid()
+%%       Channel = list()
+%%       X      = rabbit_types:exchange()
+%%       State  = #pgsql_listen_state
+%%       Result = {ok, #pgsql_listen_state}|{error, Error}
+%% @doc Publish a notification received from postgresql for the specified
+%%       Channel to the bound exchange
+%% @end
+%%
+publish_notification(Conn, Channel, Payload,
+                     #pgsql_listen_state{amqp=AMQP, pgsql=PgSQL}) ->
+
+  Connection = dict:filter(fun(_, V) -> V#pgsql_listen_conn.pid == Conn end,
+                           PgSQL),
+  [Key] = dict:fetch_keys(Connection),
+  {resource, VHost, exchange, X} = Key,
+  Value = dict:fetch(Key, Connection),
+  case dict:find(VHost, AMQP) of
+    {ok, {_, Chan}} ->
+      pgsql_listen_amqp:publish(Chan, X,
+                                Channel,
+                                [{<<"pgsql-channel">>, longstr, Channel},
+                                 {<<"pgsql-dbname">>, longstr,
+                                  Value#pgsql_listen_conn.dbname},
+                                 {<<"pgsql-server">>, longstr,
+                                  Value#pgsql_listen_conn.server},                                                               
+                                 {<<"source-exchange">>, longstr, X}],
+                                Payload);
+    error ->
+      ok
   end.
 
 %% @spec remove_bindings(X, Bs, State) -> Result
@@ -225,22 +260,29 @@ ensure_channel_binding_references(Channel, X, Channels) ->
   end.
 
 %% @private
-%% @spec ensure_pgsql_connection(X, Cs) -> Result
+%% @spec ensure_pgsql_connection(X, PgSQL) -> Result
 %% @where
 %%       X       = rabbit_types:exchange()
-%%       Cs     = dict()
+%%       PgSQL   = dict()
 %%       Result = {ok, dict()}|{error, Reason}
 %% @doc Ensure that there is an active postgres client connection in the
 %%      application state, starting a new connection if not
 %% @end
 %%
-ensure_pgsql_connection(X=#exchange{name=Name}, Cs) ->
-  case dict:find(Name, Cs) of
-    {ok, _} -> {ok, Cs};
+ensure_pgsql_connection(X=#exchange{name=Name}, PgSQL) ->
+  case dict:find(Name, PgSQL) of
+    {ok, _} -> {ok, PgSQL};
     error ->
-      case pgsql_listen_db:connect(get_pgsql_dsn(X)) of
+      DSN = get_pgsql_dsn(X),
+      case pgsql_listen_db:connect(DSN) of
         {ok, Conn} ->
-          {ok, dict:store(Name, Conn, Cs)};
+          S = lists:flatten([DSN#pgsql_listen_dsn.host, ":",
+                             integer_to_list(DSN#pgsql_listen_dsn.port)]),
+          D = list_to_binary(DSN#pgsql_listen_dsn.dbname),
+          C = #pgsql_listen_conn{pid=Conn,
+                                 server=list_to_binary(S),
+                                 dbname=D},
+          {ok, dict:store(Name, C, PgSQL)};
         {error, {{_, {error, Error}}, _}} ->
           rabbit_log:info('pgsql_listen_amqp_open: error: ~p~n', [Error]),
           {error, Error}
@@ -408,7 +450,7 @@ list_find(Element, [Item | ListTail]) ->
 listen_to_pgsql_channel(Name, Key, PgSQL) ->
   case dict:find(Name, PgSQL) of
     {ok, Conn} ->
-      pgsql_listen_db:listen(Conn, Key);
+      pgsql_listen_db:listen(Conn#pgsql_listen_conn.pid, Key);
     error ->
       {error, "pgsql_listen_lib: connection not found"}
   end.
@@ -530,8 +572,8 @@ stop_amqp_connection(X, VHost, AMQP) ->
 stop_pgsql_connection(#exchange{name=Name},
                       State=#pgsql_listen_state{pgsql=PgSQL}) ->
   case dict:find(Name, PgSQL) of
-    {ok, Connection} ->
-      ok = pgsql_listen_db:close(Connection),
+    {ok, Conn} ->
+      ok = pgsql_listen_db:close(Conn#pgsql_listen_conn.pid),
       {ok, State#pgsql_listen_state{pgsql=dict:erase(Name, PgSQL)}};
     {error, Error} ->
       rabbit_log:error("error finding cached connection for ~p in ~p: ~s~n",
@@ -554,7 +596,7 @@ stop_pgsql_connection(#exchange{name=Name},
 unlisten_to_pgsql_channel(Name, Key, PgSQL) ->
   case dict:find(Name, PgSQL) of
     {ok, Conn} ->
-      pgsql_listen_db:unlisten(Conn, Key);
+      pgsql_listen_db:unlisten(Conn#pgsql_listen_conn.pid, Key);
     error ->
       {error, "pgsql_listen_lib: connection not found"}
   end.

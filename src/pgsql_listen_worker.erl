@@ -86,11 +86,11 @@ handle_call(_Msg, _From, State) ->
   {noreply, unknown_command, State}.
 
 handle_cast(Cast, State) ->
-  rabbit_log:info("Unknown handle_cast: ~p, ~p~n", [Cast, State]),
+  rabbit_log:error("pgsql_listen_worker unknown_cast: ~p, ~p~n", [Cast, State]),
   {noreply, State}.
 
 handle_info({pgsql, Conn, {notification, Channel, _, Payload}}, State) ->
-  %%pgsql_listen_lib:publish_notification(Conn, Channel, Payload, Xs),
+  pgsql_listen_lib:publish_notification(Conn, Channel, Payload, State),
   {noreply, State};
 
 handle_info(Message, State) ->

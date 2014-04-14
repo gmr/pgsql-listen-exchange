@@ -18,5 +18,6 @@
 -define(DEFAULT_PASSWORD, <<"">>).
 -define(DEFAULT_DBNAME, <<"postgres">>).
 
+-record(pgsql_listen_conn, {pid, server, dbname}).
 -record(pgsql_listen_dsn, {host, port, user, password, dbname}).
 -record(pgsql_listen_state, {amqp, channels, pgsql}).
