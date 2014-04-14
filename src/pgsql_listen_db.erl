@@ -2,22 +2,21 @@
 %% @author Gavin M. Roy <gavinr@aweber.com>
 %% @copyright 2014 AWeber Communications
 %% @end
-%% =====================================================================
+%%==============================================================================
 
 %% @doc PostgreSQL database functionality abstraction
 %% @end
 
-
 -module(pgsql_listen_db).
 
 -export([close/1,
-         connect/5,
+         connect/1,
          listen/2,
          unlisten/2]).
 
--include("pgsql_listen.hrl").
-
 -include_lib("epgsql/include/pgsql.hrl").
+
+-include("pgsql_listen.hrl").
 
 %% @spec close(Conn) -> ok
 %% @where
@@ -28,22 +27,18 @@
 close(Conn) ->
   pgsql:close(Conn).
 
-%% @spec connect(Host, Port, User, Password, DBName) -> Result
+%% @spec connect(DSN) -> Result
 %% @doc Create a new PostgreSQL connection
 %% @where
-%%       Host     = list()
-%%       Port     = integer()
-%%       User     = list()
-%%       Password = list()
-%%       DBName   = list()
-%%       Conn     = pid()
-%%       Result   = {ok, pid()}|{error, Error}
+%%       DSN    = pgsql_dsn record
+%%       Result = {ok, pid()}|{error, Error}
 %% @end
 %%
-connect(Host, Port, User, Pass, DBName) ->
-  pgsql:connect(Host, User, Pass, [{database, DBName},
-                                   {port, Port},
-                                   {async, self()}]).
+connect(#pgsql_listen_dsn{host=Host, port=Port, user=User,
+                          password=Password, dbname=DBName}) ->
+  pgsql:connect(Host, User, Password, [{database, DBName},
+                                       {port, Port},
+                                       {async, self()}]).
 
 %% @spec listen(Connection, Channel) -> Result
 %% @where
