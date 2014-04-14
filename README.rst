@@ -120,9 +120,3 @@ Steps to custom build a version of the pgsql-listen exchange plugin:
     git clone https://github.com/aweber/pgsql-listen-exchange.git
     cd rabbitmq-pgsql-listen-exchange
     make
-
-Todo
-----
-
-- Persist AMQP connections per exchange
-- Build binary distributions for RabbitMQ versions
