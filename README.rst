@@ -7,8 +7,8 @@ mechanics.
 
 Example
 -------
-To publish to an exchange named ``test`` and queues bound to the exchange with
-a routing key of ``test``, run the following command in psql:
+To publish to queues bound to a x-pgsql-listen exchange with
+a binding key of ``test``, run the following command in psql:
 
 ..  code-block:: sql
 
