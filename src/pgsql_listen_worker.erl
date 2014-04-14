@@ -30,7 +30,7 @@ start_link() ->
   gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
-  rabbit_log:info("starting pgsql-listen exchange.~n"),
+  rabbit_log:info("starting pgsql-listen exchange worker.~n"),
   register(pgsql_listen, self()),
   {ok, #pgsql_listen_state{amqp=dict:new(),
                            channels=dict:new(),
