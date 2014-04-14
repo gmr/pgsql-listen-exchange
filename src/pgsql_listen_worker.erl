@@ -94,7 +94,7 @@ handle_info({pgsql, Conn, {notification, Channel, _, Payload}}, State) ->
   {noreply, State};
 
 handle_info(Message, State) ->
-  rabbit_log:info("unknown handle_info: ~p~n", Message),
+  rabbit_log:error("pgsql_listen_worker unknown_info: ~p~n", Message),
   {noreply, State}.
 
 terminate(_,_) ->

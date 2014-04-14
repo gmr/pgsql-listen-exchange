@@ -77,15 +77,19 @@ publish_notification(Conn, Channel, Payload,
   Value = dict:fetch(Key, Connection),
   case dict:find(VHost, AMQP) of
     {ok, {_, Chan}} ->
-      pgsql_listen_amqp:publish(Chan, X,
-                                Channel,
-                                [{<<"pgsql-channel">>, longstr, Channel},
-                                 {<<"pgsql-dbname">>, longstr,
-                                  Value#pgsql_listen_conn.dbname},
-                                 {<<"pgsql-server">>, longstr,
-                                  Value#pgsql_listen_conn.server},                                                               
-                                 {<<"source-exchange">>, longstr, X}],
-                                Payload);
+      case pgsql_listen_amqp:publish(Chan, X,
+                                     Channel,
+                                     [{<<"pgsql-channel">>, longstr, Channel},
+                                      {<<"pgsql-dbname">>, longstr,
+                                       Value#pgsql_listen_conn.dbname},
+                                      {<<"pgsql-server">>, longstr,
+                                       Value#pgsql_listen_conn.server},
+                                      {<<"source-exchange">>, longstr, X}],
+                                       Payload) of
+        ok -> ok;
+        {error, Error} ->
+          rabbit_log:error("pgsql_listen_lib publish error: ~p~n", [Error])
+      end;
     error ->
       ok
   end.
@@ -160,6 +164,8 @@ validate_pgsql_connection(X) ->
 %% @doc Validate the user specified PostgreSQL dbname is a binary value or none
 %% @end
 %%
+validate_pgsql_dbname(none) ->
+  ok;
 validate_pgsql_dbname(Value) ->
   validate_binary_or_none("pgsql-listen-dbname", Value).
 
@@ -167,9 +173,11 @@ validate_pgsql_dbname(Value) ->
 %% @where
 %%       Value  = binary()|none
 %%       Result = ok|{error, Error}
-%% @doc Validate the user specified PostgreSQL hostname is a binary value or none
+%% @doc Validate the user specified PostgreSQL hostname is a binary or none
 %% @end
 %%
+validate_pgsql_host(none) ->
+  ok;
 validate_pgsql_host(Value) ->
   validate_binary_or_none("pgsql-listen-host", Value).
 
@@ -177,9 +185,11 @@ validate_pgsql_host(Value) ->
 %% @where
 %%       Value  = binary()|none
 %%       Result = ok|{error, Error}
-%% @doc Validate the user specified PostgreSQL password is a binary value or none
+%% @doc Validate the user specified PostgreSQL password is a binary or none
 %% @end
 %%
+validate_pgsql_password(none) ->
+  ok;
 validate_pgsql_password(Value) ->
   validate_binary_or_none("pgsql-listen-password", Value).
 
@@ -204,6 +214,8 @@ validate_pgsql_port(Value) ->
 %% @doc Validate the user specified PostgreSQL user is a binary value or none
 %% @end
 %%
+validate_pgsql_user(none) ->
+  ok;
 validate_pgsql_user(Value) ->
   validate_binary_or_none("pgsql-listen-user", Value).
 
@@ -276,13 +288,11 @@ ensure_pgsql_connection(X=#exchange{name=Name}, PgSQL) ->
       DSN = get_pgsql_dsn(X),
       case pgsql_listen_db:connect(DSN) of
         {ok, Conn} ->
-          S = lists:flatten([DSN#pgsql_listen_dsn.host, ":",
-                             integer_to_list(DSN#pgsql_listen_dsn.port)]),
-          D = list_to_binary(DSN#pgsql_listen_dsn.dbname),
-          C = #pgsql_listen_conn{pid=Conn,
-                                 server=list_to_binary(S),
-                                 dbname=D},
-          {ok, dict:store(Name, C, PgSQL)};
+          {ok, dict:store(Name,
+                          #pgsql_listen_conn{pid=Conn,
+                                             server=get_pgsql_server(DSN),
+                                             dbname=get_pgsql_dbname(DSN)},
+                          PgSQL)};
         {error, {{_, {error, Error}}, _}} ->
           rabbit_log:info('pgsql_listen_amqp_open: error: ~p~n', [Error]),
           {error, Error}
@@ -325,7 +335,11 @@ get_param(X, Name, DefaultValue) when is_atom(Name) ->
 get_param(X=#exchange{arguments=Args}, Name, DefaultValue) when is_list(Name) ->
   case rabbit_policy:get(list_to_binary("pgsql-listen-" ++ Name), X) of
     undefined -> get_param_value(Args, Name, DefaultValue);
-    Value     -> Value
+    Value     ->
+      case is_binary(Value) of
+        true  -> binary_to_list(Value);
+        false -> Value
+      end
   end.
 
 %% @private
@@ -373,6 +387,16 @@ get_param_value(Args, Name, DefaultValue) ->
   end.
 
 %% @private
+%% @spec get_pgsql_dbname(DSN) -> binary()
+%% @where
+%%       DSN = tuple()#pgsql_listen_dsn
+%% @doc Return the database name as a binary
+%% @end
+%%
+get_pgsql_dbname(#pgsql_listen_dsn{dbname=DBName}) ->
+  list_to_binary(DBName).
+
+%% @private
 %% @spec get_pgsql_dsn(X) -> pgsql_dsn
 %% @where
 %%       X  = rabbit_types:exchange()
@@ -386,9 +410,20 @@ get_pgsql_dsn(X) ->
   Host = get_param(X, "host", ?DEFAULT_HOST),
   Port = get_pgsql_port(get_param(X, "port", ?DEFAULT_PORT)),
   User = get_param(X, "user", ?DEFAULT_USER),
-  Pass = get_param(X, "password", ?DEFAULT_PASSWORD),
+  Password = get_param(X, "password", ?DEFAULT_PASSWORD),
   DBName = get_param(X, "dbname", ?DEFAULT_DBNAME),
-  #pgsql_listen_dsn{host=Host, port=Port, user=User, password=Pass, dbname=DBName}.
+  #pgsql_listen_dsn{host=Host, port=Port, user=User, password=Password,
+                    dbname=DBName}.
+
+%% @private
+%% @spec get_pgsql_server(DSN) -> binary()
+%% @where
+%%       DSN = tuple()#pgsql_listen_dsn
+%% @doc Return the formatted server name for the message headers
+%% @end
+%%
+get_pgsql_server(#pgsql_listen_dsn{host=Host, port=Port}) ->
+  list_to_binary(lists:flatten([Host, ":", integer_to_list(Port)])).
 
 %% @private
 %% @spec get_pgsql_port(Value) -> integer()

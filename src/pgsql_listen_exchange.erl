@@ -86,6 +86,15 @@ validate_binding(_X, _B) ->
   ok.
 
 %% @private
+%% @spec get_server_call(Args) -> Reply
+%% @where
+%%       Name         = list()
+%%       DefaultValue = mixed
+%%       Reply        = ok|{error, Reason}
+%% @doc Wrap the gen_server:call behavior to shutdown the channel with an
+%%      exception if an error bubbles up from the worker.
+%% @end
+%%
 gen_server_call(Args) ->
   case gen_server:call(pgsql_listen, Args) of
     ok -> ok;
