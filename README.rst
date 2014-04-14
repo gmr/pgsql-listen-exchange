@@ -19,10 +19,16 @@ Download
 To download the pgsql-listen exchange, select the appropriate file that matches
 the RabbitMQ version you are running:
 
-+---------+-----------------------------------+
-| Version | URL                               |
-+=========+===================================+
-+---------+-----------------------------------+
++---------+------------+----------+-----------------------+----------------------------------+
+| Version |  Released  | RabbitMQ | Short URL             | MD5 Hash                         |
++=========+============+==========+=======================+==================================+
+|  0.1.0  | 2014-04-14 | v 3.3.0  | http://bit.ly/1iQ8elR | 554f85b005eddd09bd6917d26ece6c3f |
++---------+------------+----------+-----------------------+----------------------------------+
+
+The file is a zip file containing both the pgsql-listen-exchange plugin ez file
+and the epgsql dependency ez file. Distributable zip files are committed in the
+binaries branch of this repository. Files are served via GitHub's RAW download
+functionality.
 
 Installation
 ------------
@@ -112,11 +118,8 @@ Steps to custom build a version of the pgsql-listen exchange plugin:
     hg clone http://hg.rabbitmq.com/rabbitmq-public-umbrella
     cd rabbitmq-public-umbrella
     make co
-    make BRANCH=rabbitmq_v3_2_4 up_c
+    make BRANCH=rabbitmq_v3_3_0 up_c
     git clone https://github.com/gmr/epgsql-wrapper.git
-    cd epgsql-wrapper
-    ./build.sh
-    cd ..
     git clone https://github.com/aweber/pgsql-listen-exchange.git
     cd rabbitmq-pgsql-listen-exchange
     make
