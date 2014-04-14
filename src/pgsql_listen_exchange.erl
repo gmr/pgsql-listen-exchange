@@ -1,7 +1,13 @@
--module(pgsql_listen_exchange).
+%%==============================================================================
+%% @author Gavin M. Roy <gavinr@aweber.com>
+%% @copyright 2014 AWeber Communications
+%% @end
+%%==============================================================================
 
--include("pgsql_listen.hrl").
--include_lib("rabbit_common/include/rabbit.hrl").
+%% @doc pgsql-listen exchange plugin implementing core exchange behavior
+%% @end
+
+-module(pgsql_listen_exchange).
 
 -behaviour(rabbit_exchange_type).
 
@@ -18,15 +24,16 @@
          validate/1,
          validate_binding/2]).
 
--rabbit_boot_step({?MODULE,
-  [{description, ?X_DESC},
-   {mfa,         {rabbit_registry, register, [exchange, ?X_TYPE, ?MODULE]}},
-   {requires,    rabbit_registry},
-   {enables,     recovery}]}).
+-include("pgsql_listen.hrl").
 
-% ------------------------------------
-% Exchange Methods exposed to RabbitMQ
-% ------------------------------------
+-rabbit_boot_step({?MODULE,
+                  [{description, ?X_DESC},
+                   {mfa,         {rabbit_registry, register,
+                                  [exchange, ?X_TYPE, ?MODULE]}},
+                   {requires,    rabbit_registry},
+                   {enables,     recovery}]}).
+
+-include_lib("rabbit_common/include/rabbit.hrl").
 
 add_binding(none, X, B) ->
   gen_server:cast(pgsql_listen, {add_binding, X, B}),
@@ -60,7 +67,7 @@ delete(none, X, Bs) ->
 delete(_, _, _) ->
   ok.
 
-policy_changed(OldX = #exchange{name = Name}, NewX) ->
+policy_changed(OldX, NewX) ->
   Bs = rabbit_binding:list_for_source(OldX),
   case gen_server:call(pgsql_listen, {delete, OldX, Bs}) of
     ok ->
@@ -89,9 +96,9 @@ validate(X) ->
   case gen_server:call(pgsql_listen, {validate, X}) of
     ok -> ok;
     {error, Reason} ->
-      rabbit_log:error("postgresql connection failed: ~s", [Reason]),
+      rabbit_log:error("postgresql connection validation failed: ~s", [Reason]),
       rabbit_misc:protocol_error(resource_error,
-                                 "postgresql connection failed: ~s",
+                                 "postgresql connection validation failed: ~s",
                                  [Reason])
   end.
 
