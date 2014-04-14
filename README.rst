@@ -7,8 +7,9 @@ mechanics.
 
 Example
 -------
-To publish to queues bound to a x-pgsql-listen exchange with
-a binding key of ``test``, run the following command in psql:
+To publish Postgres notifications as AMQP messages into queues bound to a
+``x-pgsql-listen`` exchange with a binding key of ``test``, run the following
+command in psql:
 
 ..  code-block:: sql
 
