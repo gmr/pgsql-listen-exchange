@@ -1,3 +1,12 @@
+%%==============================================================================
+%% @author Gavin M. Roy <gavinr@aweber.com>
+%% @copyright 2014 AWeber Communications
+%% @end
+%%==============================================================================
+
+%% @doc define the runtime parameters and validators to setup policies
+%% @end
+
 -module(pgsql_listen_parameters).
 
 -behaviour(rabbit_runtime_parameter).
@@ -42,7 +51,6 @@ validate(VHost, What, Name, Term) ->
   rabbit_policy:validate(VHost, <<"policy">>, Name, Term).
 
 validate_policy(KeyList) ->
-  rabbit_log:info("Validating policy~n"),
   Host     = proplists:get_value(<<"pgsql-listen-host">>, KeyList, none),
   Port     = proplists:get_value(<<"pgsql-listen-port">>, KeyList, none),
   DBName   = proplists:get_value(<<"pgsql-listen-dbname">>, KeyList, none),
@@ -53,7 +61,6 @@ validate_policy(KeyList) ->
                 pgsql_listen_lib:validate_dbname(DBName),
                 pgsql_listen_lib:validate_user(User),
                 pgsql_listen_lib:validate_password(Password)],
-  rabbit_log:info("Validation results: ~p~n", [Validation]),
   case Validation of
     [ok, ok, ok, ok, ok]                   -> ok;
     [{error, Error, Args}, _, _, _, _]     -> {error, Error, Args};
