@@ -1,3 +1,13 @@
+%%==============================================================================
+%% @author Gavin M. Roy <gavinr@aweber.com>
+%% @copyright 2014 AWeber Communications
+%% @end
+%%==============================================================================
+
+%% @doc gen_server process for listening to casts and calls from
+%% pgsql_listen_exchange and epgsql
+%% @end
+
 -module(pgsql_listen_worker).
 
 -behaviour(gen_server).
@@ -12,58 +22,76 @@
 
 -include("pgsql_listen.hrl").
 
-%---------------------------
+% -------------------------
 % Worker Startup
-% --------------------------
+% -------------------------
 
 start_link() ->
   gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
-  rabbit_log:info("started pgsql-listen exchange.~n"),
+  rabbit_log:info("starting pgsql-listen exchange.~n"),
   register(pgsql_listen, self()),
-  {ok,  {state, {dict:new(), []}}}.
+  {ok, #pgsql_listen_state{amqp=dict:new(),
+                           channels=dict:new(),
+                           pgsql=dict:new()}}.
 
-%---------------------------
+% -------------------------
 % Gen Server Implementation
-% --------------------------
+% -------------------------
 
 code_change(_, State, _) ->
   {ok, State}.
 
-handle_call({create, X}, _From, {state, {Cs, Xs}}) ->
-  pgsql_listen_lib:connect_to_pgsql(X, Cs, Xs);
-
-handle_call({delete, X, Bs}, _From, {state, {Cs, Xs}}) ->
-  NXs = pgsql_listen_lib:remove_binding(X, Cs, Xs, Bs),
-  NCs = pgsql_listen_lib:close_pgsql_client(X, Cs),
-  {reply, ok, {state, {NCs, NXs}}};
-
-handle_call({validate, X}, _From, {state, {Cs, Xs}}) ->
-  pgsql_listen_lib:connect_to_pgsql(X, Cs, Xs);
-
-handle_call(_Msg, _From, _State) ->
-  {noreply, unknown_command, _State}.
-
-handle_cast({add_binding, X, B}, {state, {Cs, Xs}}) ->
-  case pgsql_listen_lib:pgsql_listen(X, B, Cs, Xs) of
-    {ok, NXs} ->
-      {noreply, {state, {Cs, NXs}}};
-    _ ->
-      {noreply, {state, {Cs, Xs}}}
+handle_call({add_binding, X, B}, _From, State) ->
+  case pgsql_listen_lib:add_binding(X, B, State) of
+    {ok, NState} -> {reply, ok, NState};
+    {error, Error}   -> {reply, {error, Error}, {state, State}}
   end;
 
-handle_cast({remove_bindings, X, Bs}, {state, {Cs, Xs}}) ->
-  NXs = pgsql_listen_lib:remove_binding(X, Cs, Xs, Bs),
-  {noreply, {state, {Cs, NXs}}};
+handle_call({create, X}, _From, State) ->
+  case pgsql_listen_lib:start_exchange(X, State) of
+    {ok, NewState} ->
+      {reply, ok, NewState};
+    {error, Error} ->
+      {reply, {error, Error}, {state, State}}
+  end;
+
+handle_call({delete, X, Bs}, _From, State) ->
+  case pgsql_listen_lib:remove_bindings(X, Bs, State) of
+    {ok, NState1} ->
+      case pgsql_listen_lib:stop_exchange(X, NState1) of
+        {ok, NState2} ->
+          {reply, ok, NState2};
+        {error, Error} ->
+          {reply, {error, Error}, NState1}
+      end;
+    {error, Error} ->
+      {reply, {error, Error}, State}
+  end;
+
+handle_call({remove_bindings, X, Bs}, _From, State) ->
+  case pgsql_listen_lib:remove_bindings(X, Bs, State) of
+    {ok, NState} -> {reply, ok, NState};
+    {error, Error}   -> {reply, {error, Error}, {state, State}}
+  end;
+
+handle_call({validate, X}, _From, State) ->
+  case pgsql_listen_lib:validate_pgsql_connection(X) of
+    ok             -> {reply, ok, State};
+    {error, Error} -> {reply, {error, Error}, State}
+  end;
+
+handle_call(_Msg, _From, State) ->
+  {noreply, unknown_command, State}.
 
 handle_cast(Cast, State) ->
   rabbit_log:info("Unknown handle_cast: ~p, ~p~n", [Cast, State]),
   {noreply, State}.
 
-handle_info({pgsql, Conn, {notification, Channel, _, Payload}}, {state, {Cs, Xs}}) ->
-  pgsql_listen_lib:publish_notification(Conn, Channel, Payload, Xs),
-  {noreply, {state, {Cs, Xs}}};
+handle_info({pgsql, Conn, {notification, Channel, _, Payload}}, State) ->
+  %%pgsql_listen_lib:publish_notification(Conn, Channel, Payload, Xs),
+  {noreply, State};
 
 handle_info(Message, State) ->
   rabbit_log:info("unknown handle_info: ~p~n", Message),
@@ -71,7 +99,3 @@ handle_info(Message, State) ->
 
 terminate(_,_) ->
   ok.
-
-%-----------------
-% Internal Methods
-%-----------------

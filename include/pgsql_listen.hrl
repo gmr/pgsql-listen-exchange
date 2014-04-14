@@ -19,6 +19,4 @@
 -define(DEFAULT_DBNAME, <<"postgres">>).
 
 -record(pgsql_listen_dsn, {host, port, user, password, dbname}).
--record(pgsql_listen_state, {pgsql, vhosts}).
--record(pgsql_listen_vhost, {connection, channel, bindings}).
--record(pgsql_listen_binding, {exchange, key}).
+-record(pgsql_listen_state, {amqp, channels, pgsql}).

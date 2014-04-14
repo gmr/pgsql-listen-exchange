@@ -35,37 +35,26 @@
 
 -include_lib("rabbit_common/include/rabbit.hrl").
 
-add_binding(none, X, B) ->
-  gen_server:cast(pgsql_listen, {add_binding, X, B}),
+add_binding(transaction, _, _) ->
   ok;
-
-add_binding(_, _, _) ->
-  ok.
+add_binding(none, X, B) ->
+  gen_server_call({add_binding, X, B}).
 
 assert_args_equivalence(X, Args) ->
   rabbit_exchange:assert_args_equivalence(X, Args).
 
+create(transaction, _X) ->
+    ok;
 create(none, X) ->
-  case gen_server:call(pgsql_listen, {create, X}) of
-    ok -> ok;
-    {error, Reason} ->
-      rabbit_log:error("postgresql connection failed: ~s", [Reason]),
-      rabbit_misc:protocol_error(resource_error,
-                                 "postgresql connection failed: ~s",
-                                 [Reason])
-  end;
-
-create(_, _) ->
-  ok.
+  gen_server_call({create, X}).
 
 description() ->
   [{name, ?X_TYPE}, {description, ?X_DESC}].
 
+delete(transaction, _, _) ->
+  ok;
 delete(none, X, Bs) ->
-  gen_server:call(pgsql_listen, {delete, X, Bs});
-
-delete(_, _, _) ->
-  ok.
+  gen_server_call({delete, X, Bs}).
 
 policy_changed(OldX, NewX) ->
   Bs = rabbit_binding:list_for_source(OldX),
@@ -79,28 +68,29 @@ policy_changed(OldX, NewX) ->
 recover(_, _) ->
   ok.
 
-remove_bindings(none, X, Bs) ->
-  gen_server:cast(pgsql_listen, {remove_bindings, X, Bs}),
+remove_bindings(transaction, _, _) ->
   ok;
-
-remove_bindings(_, _, _) ->
-  ok.
+remove_bindings(none, X, Bs) ->
+  gen_server_call({remove_bindings, X, Bs}).
 
 route(X, Delivery) ->
-  rabbit_exchange_type_topic:route(X, Delivery).
+  rabbit_exchange_type_direct:route(X, Delivery).
 
 serialise_events() ->
   false.
 
 validate(X) ->
-  case gen_server:call(pgsql_listen, {validate, X}) of
-    ok -> ok;
-    {error, Reason} ->
-      rabbit_log:error("postgresql connection validation failed: ~s", [Reason]),
-      rabbit_misc:protocol_error(resource_error,
-                                 "postgresql connection validation failed: ~s",
-                                 [Reason])
-  end.
+  gen_server_call({validate, X}).
 
 validate_binding(_X, _B) ->
   ok.
+
+%% @private
+gen_server_call(Args) ->
+  case gen_server:call(pgsql_listen, Args) of
+    ok -> ok;
+    {error, Reason} ->
+      rabbit_misc:protocol_error(resource_error,
+                                 "pgsql_listen_worker failure (~s)",
+                                 [Reason])
+  end.
