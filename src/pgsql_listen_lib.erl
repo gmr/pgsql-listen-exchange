@@ -25,37 +25,6 @@
 
 -include("pgsql_listen.hrl").
 
-%% @spec start_exchange(X, State) -> Result
-%% @where
-%%       X      = rabbit_types:exchange()
-%%       State  = #pgsql_listen_state
-%%       Result = {ok, #pgsql_listen_state}|{error, Error}
-%% @doc Start and cache references to the pgsql to start the exchange. The
-%% RabbitMQ connection will be made on demand.
-%%
-%% @end
-%%
-start_exchange(X, State=#pgsql_listen_state{pgsql=PgSQL}) ->
-  case ensure_pgsql_connection(X, PgSQL) of
-    {ok, NPgSQL} ->
-      {ok, State#pgsql_listen_state{pgsql=NPgSQL}};
-    {error, Error} ->
-      {error, Error}
-  end.
-
-%% @spec stop_exchange(X, State) -> Result
-%% @where
-%%       X      = rabbit_types:exchange()
-%%       State  = #pgsql_listen_state
-%%       Result = {ok, #pgsql_listen_state}
-%% @doc Stop and remove cache references to the pgsql and rabbitmq processes for
-%% an exchange
-%% for an exchange
-%% @end
-%%
-stop_exchange(X, State) ->
-  stop_pgsql_connection(X, State).
-
 %% @spec add_binding(X, B, State) -> Result
 %% @where
 %%       X      = rabbit_types:exchange()
@@ -102,6 +71,37 @@ remove_bindings(X, [Binding | ListTail], State) ->
     {ok, NewState} -> remove_bindings(X, ListTail, NewState);
     {error, Error} -> {error, Error}
   end.
+
+%% @spec start_exchange(X, State) -> Result
+%% @where
+%%       X      = rabbit_types:exchange()
+%%       State  = #pgsql_listen_state
+%%       Result = {ok, #pgsql_listen_state}|{error, Error}
+%% @doc Start and cache references to the pgsql to start the exchange. The
+%% RabbitMQ connection will be made on demand.
+%%
+%% @end
+%%
+start_exchange(X, State=#pgsql_listen_state{pgsql=PgSQL}) ->
+  case ensure_pgsql_connection(X, PgSQL) of
+    {ok, NPgSQL} ->
+      {ok, State#pgsql_listen_state{pgsql=NPgSQL}};
+    {error, Error} ->
+      {error, Error}
+  end.
+
+%% @spec stop_exchange(X, State) -> Result
+%% @where
+%%       X      = rabbit_types:exchange()
+%%       State  = #pgsql_listen_state
+%%       Result = {ok, #pgsql_listen_state}
+%% @doc Stop and remove cache references to the pgsql and rabbitmq processes for
+%% an exchange
+%% for an exchange
+%% @end
+%%
+stop_exchange(X, State) ->
+  stop_pgsql_connection(X, State).
 
 %% @spec validate_pgsql_exchange(X) -> Result
 %% @where
