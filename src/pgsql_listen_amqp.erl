@@ -11,7 +11,9 @@
 
 -export([open/1,
          close/2,
-         publish/2]).
+         publish/5]).
+
+-include_lib("amqp_client/include/amqp_client.hrl").
 
 %% @spec open(VHost) -> Result
 %% @where
@@ -21,10 +23,12 @@
 %% @end
 %%
 open(VHost) ->
-  case amqp_connection:start(#amqp_params_direct{virtual_host=VHost}) of
+  AdapterInfo = #amqp_adapter_info{name = <<"pgsql_listen_worker">>},
+  case amqp_connection:start(#amqp_params_direct{virtual_host=VHost,
+                                                 adapter_info=AdapterInfo}) of
     {ok, Connection} ->
       {ok, Channel} = amqp_connection:open_channel(Connection),
-      {Connection, Channel}.
+      {ok, Connection, Channel};
     {error, Error} ->
       {error, Error}
   end.
@@ -52,15 +56,27 @@ close(Connection, Channel) ->
 %% @doc Publish a message to RabbitMQ using the internal channel
 %% @end
 %%
-pubilsh(Channel, X, Key, Headers, Body) ->
+publish(Channel, X, Key, Headers, Body) ->
   BasicPublish = #'basic.publish'{exchange=X, routing_key=Key},
   Properties = #'P_basic'{app_id = <<"pgsql-listen-exchange">>,
                           delivery_mode = 1,
                           headers = Headers,
                           timestamp = current_timestamp()},
-  case amqp_channel:call(Chan,
-                          BasicPublish,
-                          #amqp_msg{props=Properties, payload=Body}) of
+  case amqp_channel:call(Channel,
+                         BasicPublish,
+                         #amqp_msg{props=Properties, payload=Body}) of
       ok -> ok;
       Other -> {error, Other}
   end.
+
+%% @private
+convert_gregorian_to_julian(GregorianSeconds) ->
+  GregorianSeconds - 719528 * 24 * 3600.
+
+%% @private
+current_gregorian_timestamp() ->
+  calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(now())).
+
+%% @private
+current_timestamp() ->
+  convert_gregorian_to_julian(current_gregorian_timestamp()).
