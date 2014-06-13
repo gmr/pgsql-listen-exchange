@@ -23,6 +23,8 @@ the RabbitMQ version you are running:
 +---------+------------+----------+-----------------------+----------------------------------+
 | Version |  Released  | RabbitMQ | Short URL             | MD5 Hash                         |
 +=========+============+==========+=======================+==================================+
+|  0.1.1  | 2014-06-13 | v 3.3.2  | http://bit.ly/1lt21jz | c1ff7ae678af21a28348acc5835c53fe |
++---------+------------+----------+-----------------------+----------------------------------+
 |  0.1.0  | 2014-04-14 | v 3.3.0  | http://bit.ly/1iQ8elR | 554f85b005eddd09bd6917d26ece6c3f |
 +---------+------------+----------+-----------------------+----------------------------------+
 
@@ -119,7 +121,7 @@ Steps to custom build a version of the pgsql-listen exchange plugin:
     hg clone http://hg.rabbitmq.com/rabbitmq-public-umbrella
     cd rabbitmq-public-umbrella
     make co
-    make BRANCH=rabbitmq_v3_3_0 up_c
+    make BRANCH=rabbitmq_v3_3_2 up_c
     git clone https://github.com/gmr/epgsql-wrapper.git
     git clone https://github.com/aweber/pgsql-listen-exchange.git
     cd rabbitmq-pgsql-listen-exchange
