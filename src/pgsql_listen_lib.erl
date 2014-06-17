@@ -88,7 +88,8 @@ publish_notification(Conn, Channel, Payload,
                                        Payload) of
         ok -> ok;
         {error, Error} ->
-          rabbit_log:error("pgsql_listen_lib publish error: ~p~n", [Error])
+          rabbit_log:error("pgsql_listen_lib publish error: ~p~n", [Error]),
+          ok
       end;
     error ->
       ok
@@ -615,7 +616,8 @@ stop_pgsql_connection(#exchange{name=Name},
                        [Name, PgSQL, Error]),
       {ok, State};
     Other ->
-      rabbit_log:info("Other clause matched: ~p~n", [Other])
+      rabbit_log:info("Other clause matched: ~p~n", [Other]),
+      {ok, State}
   end.
 
 %% @private
