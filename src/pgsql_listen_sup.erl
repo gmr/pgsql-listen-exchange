@@ -17,17 +17,23 @@
                    [{description, "PgSQL Listen Supervisor"},
                     {mfa,         {rabbit_sup, start_child, [?MODULE]}},
                     {requires,    kernel_ready},
+                    {cleanup,     {?MODULE, stop, []}},
                     {enables,     pgsql_listen_exchange}]}).
 
--export([init/1, start_link/0]).
+-export([init/1, start_link/0, stop/0]).
 
 -include_lib("rabbit_common/include/rabbit.hrl").
 
 start_link() ->
-     mirrored_supervisor:start_link(
-       {local, ?MODULE}, ?MODULE,
-       fun rabbit_misc:execute_mnesia_transaction/1,
-       ?MODULE, []).
+   mirrored_supervisor:start_link(
+     {local, ?MODULE}, ?MODULE,
+     fun rabbit_misc:execute_mnesia_transaction/1,
+     ?MODULE, []).
+
+stop() ->
+    ok = mirrored_supervisor:terminate_child(?MODULE),
+    ok = mirrored_supervisor:delete_child(?MODULE).
+
 
 init([]) ->
     {ok, {{one_for_one, 3, 10},
