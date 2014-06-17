@@ -31,6 +31,8 @@
                    {mfa,         {rabbit_registry, register,
                                   [exchange, ?X_TYPE, ?MODULE]}},
                    {requires,    rabbit_registry},
+                   {cleanup,     {rabbit_registry, unregister,
+                                  [exchange, ?X_TYPE]}},
                    {enables,     recovery}]}).
 
 -include_lib("rabbit_common/include/rabbit.hrl").
@@ -96,7 +98,7 @@ validate_binding(_X, _B) ->
 %% @end
 %%
 gen_server_call(Args) ->
-  case gen_server:call(pgsql_listen, Args) of
+  case gen_server:call(pgsql_listen_worker, Args) of
     ok -> ok;
     {error, Reason} ->
       rabbit_misc:protocol_error(resource_error,
