@@ -12,22 +12,32 @@
 -behaviour(rabbit_policy_validator).
 
 -export([register/0,
+         unregister/0,
          validate_policy/1]).
+
+-define(RUNTIME_PARAMETERS,
+        [{policy_validator,  <<"pgsql-listen-host">>},
+         {policy_validator,  <<"pgsql-listen-port">>},
+         {policy_validator,  <<"pgsql-listen-dbname">>},
+         {policy_validator,  <<"pgsql-listen-user">>},
+         {policy_validator,  <<"pgsql-listen-password">>}]).
 
 -rabbit_boot_step({?MODULE,
                    [{description, "pgsql-listen parameters"},
                     {mfa, {?MODULE, register, []}},
                     {requires, rabbit_registry},
+                    {cleanup, {pgsql_listen_parameters, unregister, []}},
                     {enables, recovery}]}).
 
 register() ->
   [rabbit_registry:register(Class, Name, ?MODULE) ||
-      {Class, Name} <- [{policy_validator,  <<"pgsql-listen-host">>},
-                        {policy_validator,  <<"pgsql-listen-port">>},
-                        {policy_validator,  <<"pgsql-listen-dbname">>},
-                        {policy_validator,  <<"pgsql-listen-user">>},
-                        {policy_validator,  <<"pgsql-listen-password">>}]],
+      {Class, Name} <- ?RUNTIME_PARAMETERS],
   ok.
+
+unregister() ->
+    [rabbit_registry:unregister(Class, Name) ||
+        {Class, Name} <- ?RUNTIME_PARAMETERS],
+    ok.
 
 validate_policy(KeyList) ->
   Host     = proplists:get_value(<<"pgsql-listen-host">>, KeyList, none),
