@@ -31,7 +31,7 @@ start_link() ->
 
 init([]) ->
   rabbit_log:info("starting pgsql-listen exchange worker.~n"),
-  register(pgsql_listen, self()),
+  register(pgsql_listen_worker, self()),
   {ok, #pgsql_listen_state{amqp=dict:new(),
                            channels=dict:new(),
                            pgsql=dict:new()}}.
