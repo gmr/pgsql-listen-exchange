@@ -17,10 +17,14 @@
          handle_call/3,
          handle_cast/2,
          handle_info/2,
+         handle_interval/1,
          terminate/2,
          code_change/3]).
 
 -include("pgsql_listen.hrl").
+
+% How long to wait when starting up to see if rabbit_direct_client_sup exists
+-define(DEFERRAL_WAIT, 2000).
 
 % -------------------------
 % Worker Startup
@@ -44,17 +48,29 @@ code_change(_, State, _) ->
   {ok, State}.
 
 handle_call({add_binding, X, B}, _From, State) ->
-  case pgsql_listen_lib:add_binding(X, B, State) of
-    {ok, NState} -> {reply, ok, NState};
-    {error, Error}   -> {reply, {error, Error}, {state, State}}
+  case whereis(rabbit_direct_client_sup) of
+    undefined ->
+      defer_call({add_binding, X, B}),
+      {reply, ok, State};
+    _ ->
+      case pgsql_listen_lib:add_binding(X, B, State) of
+        {ok, NState} -> {reply, ok, NState};
+        {error, Error}   -> {reply, {error, Error}, {state, State}}
+    end
   end;
 
 handle_call({create, X}, _From, State) ->
-  case pgsql_listen_lib:start_exchange(X, State) of
-    {ok, NewState} ->
-      {reply, ok, NewState};
-    {error, Error} ->
-      {reply, {error, Error}, {state, State}}
+  case whereis(rabbit_direct_client_sup) of
+    undefined ->
+      defer_call({create, X}),
+      {reply, ok, State};
+    _ ->
+      case pgsql_listen_lib:start_exchange(X, State) of
+        {ok, NewState} ->
+          {reply, ok, NewState};
+        {error, Error} ->
+          {reply, {error, Error}, {state, State}}
+      end
   end;
 
 handle_call({delete, X, Bs}, _From, State) ->
@@ -99,3 +115,13 @@ handle_info(Message, State) ->
 
 terminate(_,_) ->
   ok.
+
+% -----------------------------
+% Defer any calls to the worker
+% -----------------------------
+
+defer_call(Command) ->
+  timer:apply_after(?DEFERRAL_WAIT, ?MODULE, handle_interval, [Command]).
+
+handle_interval(Command) ->
+  gen_server:call(?MODULE, Command).
