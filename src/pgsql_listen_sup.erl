@@ -25,6 +25,7 @@
 -include_lib("rabbit_common/include/rabbit.hrl").
 
 start_link() ->
+   rabbit:maybe_insert_default_data(),
    mirrored_supervisor:start_link(
      {local, ?MODULE}, ?MODULE,
      fun rabbit_misc:execute_mnesia_transaction/1,
