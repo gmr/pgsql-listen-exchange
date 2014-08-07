@@ -108,7 +108,7 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
         {port: 5432},
         {dbname: "postgres"},
         {user: "postgres"},
-        {password: ""},
+        {password: ""}
       ]}
     ].
 
