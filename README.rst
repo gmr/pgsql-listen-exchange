@@ -98,7 +98,7 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
 | password     | The password to use when connecting  | list      | ""            |
 +--------------+--------------------------------------+-----------+---------------+
 
-*Exaple rabbitmq.config*
+*Example rabbitmq.config*
 
 ..  code-block:: erlang
 
