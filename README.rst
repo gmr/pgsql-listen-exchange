@@ -36,7 +36,7 @@ functionality.
 Installation
 ------------
 Extract the contents of the zip file into your RabbitMQ plugins directory. Once
-extracted, run ``rabbitmq-plugins enable pgsql-listen-exchange``.
+extracted, run ``rabbitmq-plugins enable pgsql_listen_exchange``.
 
 Configuration
 -------------
