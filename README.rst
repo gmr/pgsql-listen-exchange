@@ -36,7 +36,7 @@ functionality.
 Installation
 ------------
 Extract the contents of the zip file into your RabbitMQ plugins directory. Once
-extracted, run ``rabbitmq-plugins enable pgsql-listen-exchange``.
+extracted, run ``rabbitmq-plugins enable pgsql_listen_exchange``.
 
 Configuration
 -------------
@@ -98,7 +98,7 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
 | password     | The password to use when connecting  | list      | ""            |
 +--------------+--------------------------------------+-----------+---------------+
 
-*Exaple rabbitmq.config*
+*Example rabbitmq.config*
 
 ..  code-block:: erlang
 
