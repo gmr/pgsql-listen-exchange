@@ -264,7 +264,7 @@ ensure_channel_binding_references(Channel, X, Channels) ->
     {ok, Bindings} ->
       case list_find(X, Bindings) of
         true ->
-          {ok, Bindings};
+          {ok, Channels};
         false ->
           {ok, dict:store(Channel, lists:append(Bindings, [X]), Channels)}
       end;
