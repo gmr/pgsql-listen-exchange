@@ -85,7 +85,7 @@ publish_notification(Conn, Channel, Payload,
                                       {<<"pgsql-server">>, longstr,
                                        Value#pgsql_listen_conn.server},
                                       {<<"source-exchange">>, longstr, X}],
-                                       Payload) of
+                                       Payload, get_delivery_mode(Key, Channel)) of
         ok -> ok;
         {error, Error} ->
           rabbit_log:error("pgsql_listen_lib publish error: ~p~n", [Error]),
@@ -94,6 +94,18 @@ publish_notification(Conn, Channel, Payload,
     error ->
       ok
   end.
+  
+get_delivery_mode(Exchange, Channel) ->
+    Bindings = rabbit_binding:list_for_source(Exchange),
+    case lists:keyfind(Channel, #binding.key, Bindings) of
+        Binding when is_record(Binding, binding) ->
+            case lists:keyfind(<<"delivery_mode">>, 1, Binding#binding.args) of
+                {_, Type, Value} when Type == long, Value >= 1, Value =< 2 -> Value;
+                false -> 1;
+                _ -> 1
+            end;
+        false -> 1
+    end.
 
 %% @spec remove_bindings(X, Bs, State) -> Result
 %% @where

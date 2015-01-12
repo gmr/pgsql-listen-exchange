@@ -11,7 +11,7 @@
 
 -export([open/1,
          close/2,
-         publish/5]).
+         publish/6]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -45,21 +45,22 @@ close(Connection, Channel) ->
   amqp_connection:close(Connection),
   ok.
 
-%% @spec publish(Channel, X, Key, Headers, Body) -> Result
+%% @spec publish(Channel, X, Key, Headers, Body, DeliveryMode) -> Result
 %% @where
 %%       Channel = pid()
 %%       X       = binary()
 %%       Key     = binary()
 %%       Headers = tuple()
 %%       Body    = binary()
+%%       DeliveryMode = long()
 %%       Result  = ok | {error, Reason}
 %% @doc Publish a message to RabbitMQ using the internal channel
 %% @end
 %%
-publish(Channel, X, Key, Headers, Body) ->
+publish(Channel, X, Key, Headers, Body, DeliveryMode) ->
   BasicPublish = #'basic.publish'{exchange=X, routing_key=Key},
   Properties = #'P_basic'{app_id = <<"pgsql-listen-exchange">>,
-                          delivery_mode = 1,
+                          delivery_mode = DeliveryMode,
                           headers = Headers,
                           timestamp = current_timestamp()},
   case amqp_channel:call(Channel,
@@ -80,3 +81,4 @@ current_gregorian_timestamp() ->
 %% @private
 current_timestamp() ->
   convert_gregorian_to_julian(current_gregorian_timestamp()).
+-
