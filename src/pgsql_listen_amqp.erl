@@ -81,4 +81,3 @@ current_gregorian_timestamp() ->
 %% @private
 current_timestamp() ->
   convert_gregorian_to_julian(current_gregorian_timestamp()).
--
