@@ -104,11 +104,11 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
 
     [{pgsql_listen_exchange,
       [
-        {host: "localhost"},
-        {port: 5432},
-        {dbname: "postgres"},
-        {user: "postgres"},
-        {password: ""}
+        {host, "localhost"},
+        {port, 5432},
+        {dbname, "postgres"},
+        {user, "postgres"},
+        {password, ""}
       ]}
     ].
 
