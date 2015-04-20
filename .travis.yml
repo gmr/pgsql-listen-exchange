@@ -1,0 +1,29 @@
+language: erlang
+otp_release:
+- 17.4
+env:
+- BUILD_DIR=$HOME/rabbitmq-public-umbrella RABBIT_TAG=v3_5_1
+before_install:
+- "$TRAVIS_BUILD_DIR/travis-umbrella-setup.sh"
+install:
+- sudo apt-get update -qq
+- sudo apt-get install -qq -y xsltproc
+script: cd $BUILD_DIR/pgsql-listen-exchange && make test
+after_script:
+- rm -rf $BUILD_DIR/pgsql-listen-exchange
+before_deploy:
+- cd $BUILD_DIR/pgsql-listen-exchange
+- VERSION=$TRAVIS_TAG make
+cache:
+  apt: true
+  directories:
+  - "$BUILD_DIR"
+deploy:
+  provider: releases
+  api_key:
+    secure: tqI4Ted0Qp68oHqQ/hXvvsrR0lOB5c6eLLOuFb/HlAJMNKMs6yPw5Z4YY1ldVZsOhr5V7yzkb3yKta0PFXgNIaLwA7vsq9nzgF4cbxLScyzlcb7Sx/7Avr16AOQxiz13NCKDLi64AE+1rUCqvJfAtexQ98Ls/zzzBnBI81t/yOs=
+  file: $BUILD_DIR/pgsql-listen-exchange/dist/pgsql_listen_exchange-${TRAVIS_TAG}.ez
+  on:
+    tags: true
+    repo: aweber/pgsql-listen-exchange
+
