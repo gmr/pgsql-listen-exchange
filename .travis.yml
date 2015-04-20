@@ -4,7 +4,7 @@ otp_release:
 env:
 - BUILD_DIR=$HOME/rabbitmq-public-umbrella RABBIT_TAG=v3_5_1
 before_install:
-- "$TRAVIS_BUILD_DIR/travis-umbrella-setup.sh"
+- $TRAVIS_BUILD_DIR/travis-umbrella-setup.sh
 install:
 - sudo apt-get update -qq
 - sudo apt-get install -qq -y xsltproc
@@ -17,7 +17,7 @@ before_deploy:
 cache:
   apt: true
   directories:
-  - "$BUILD_DIR"
+  - $BUILD_DIR
 deploy:
   provider: releases
   api_key:

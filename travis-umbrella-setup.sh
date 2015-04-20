@@ -9,9 +9,9 @@ if [ ! -d $BUILD_DIR ]; then
     make co
 fi
 cd $BUILD_DIR
-if [ ! -d $BUILD_DIR/epgsql-wrapper ]; then
+make BRANCH=rabbitmq_${RABBIT_TAG} up_c
+if [ ! -d "$BUILD_DIR/epgsql-wrapper" ]; then
     git clone git clone https://github.com/gmr/epgsql-wrapper.git
 fi
-make BRANCH=rabbitmq_${RABBIT_TAG} up_c
-rm -rf ${BUILD_DIR}/rabbitmq-autocluster-consul
+rm -rf ${BUILD_DIR}/rabbitmq-public-umbrella
 cp -r ${TRAVIS_BUILD_DIR} ${BUILD_DIR}/
