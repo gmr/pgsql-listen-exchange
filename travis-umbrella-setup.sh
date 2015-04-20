@@ -11,7 +11,7 @@ fi
 cd $BUILD_DIR
 make BRANCH=rabbitmq_${RABBIT_TAG} up_c
 if [ ! -d "$BUILD_DIR/epgsql-wrapper" ]; then
-    git clone git clone https://github.com/gmr/epgsql-wrapper.git
+    git clone https://github.com/gmr/epgsql-wrapper.git
 fi
 rm -rf ${BUILD_DIR}/rabbitmq-public-umbrella
 cp -r ${TRAVIS_BUILD_DIR} ${BUILD_DIR}/
