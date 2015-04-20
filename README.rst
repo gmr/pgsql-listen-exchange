@@ -5,6 +5,11 @@ messages and publishes them to bound queues. The PostgreSQL NOTIFY message chann
 is used as the routing key for the message using direct exchange style routing
 mechanics.
 
+.. image:: https://img.shields.io/travis/aweber/pgsql-listen-exchange.svg
+    :target: https://travis-ci.org/aweber/pgsql-listen-exchange
+.. image:: https://img.shields.io/github/release/aweber/pgsql-listen-exchange.svg
+    :target: https://github.com/aweber/pgsql-listen-exchange/releases
+
 Example
 -------
 To publish Postgres notifications as AMQP messages into queues bound to a
@@ -121,7 +126,7 @@ Steps to custom build a version of the pgsql-listen exchange plugin:
     hg clone http://hg.rabbitmq.com/rabbitmq-public-umbrella
     cd rabbitmq-public-umbrella
     make co
-    make BRANCH=rabbitmq_v3_3_2 up_c
+    make BRANCH=rabbitmq_v3_5_1 up_c
     git clone https://github.com/gmr/epgsql-wrapper.git
     git clone https://github.com/aweber/pgsql-listen-exchange.git
     cd rabbitmq-pgsql-listen-exchange
