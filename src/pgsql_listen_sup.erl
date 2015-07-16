@@ -9,9 +9,11 @@
 
 -module(pgsql_listen_sup).
 
--behaviour(mirrored_supervisor).
+-behaviour(supervisor2).
 
 -define(WORKER, pgsql_listen_worker).
+
+-export([init/1, start_link/0, stop/0]).
 
 -rabbit_boot_step({pgsql_listen_supervisor,
                    [{description, "PgSQL Listen Supervisor"},
@@ -20,24 +22,18 @@
                     {cleanup,     {?MODULE, stop, []}},
                     {enables,     pgsql_listen_exchange}]}).
 
--export([init/1, start_link/0, stop/0]).
 
 -include_lib("rabbit_common/include/rabbit.hrl").
 
 start_link() ->
    rabbit:maybe_insert_default_data(),
-   mirrored_supervisor:start_link(
-     {local, ?MODULE}, ?MODULE,
-     fun rabbit_misc:execute_mnesia_transaction/1,
-     ?MODULE, []).
-
-stop() ->
-    ok = mirrored_supervisor:terminate_child(?MODULE),
-    ok = mirrored_supervisor:delete_child(?MODULE).
-
+   supervisor2:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
     {ok, {{one_for_one, 3, 10},
-          [{?WORKER,
-           {?WORKER, start_link, []},
-           permanent, ?MAX_WAIT, worker, [?WORKER]}]}}.
+          [{?WORKER, {?WORKER, start_link, []},
+           transient, ?MAX_WAIT, worker, [?WORKER]}]}}.
+
+stop() ->
+    ok = supervisor:terminate_child(rabbit_sup, ?MODULE),
+    ok = supervisor:delete_child(rabbit_sup, ?MODULE).
