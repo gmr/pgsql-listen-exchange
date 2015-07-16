@@ -1,10 +1,10 @@
 %%==============================================================================
 %% @author Gavin M. Roy <gavinr@aweber.com>
-%% @copyright 2014 AWeber Communications
+%% @copyright 2014-2015 AWeber Communications
 %% @end
 %%==============================================================================
 
-%% @doc Constantsand records for the pgsql-listen exchange
+%% @doc Constants and records for the pgsql-listen exchange
 %% @end
 -define(X_TYPE, <<"x-pgsql-listen">>).
 -define(X_DESC, <<"PostgreSQL LISTEN Exchange.">>).
