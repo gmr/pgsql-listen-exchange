@@ -21,3 +21,8 @@
 -record(pgsql_listen_conn, {pid, server, dbname}).
 -record(pgsql_listen_dsn, {host, port, user, password, dbname}).
 -record(pgsql_listen_state, {amqp, channels, pgsql}).
+-record(properties, {app_id, content_type, content_encoding, delivery_mode,
+                     headers, priority, reply_to, type}).
+
+-include_lib("amqp_client/include/amqp_client.hrl").
+-include_lib("epgsql/include/epgsql.hrl").
