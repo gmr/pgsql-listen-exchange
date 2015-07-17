@@ -14,8 +14,6 @@
          listen/2,
          unlisten/2]).
 
--include_lib("epgsql/include/pgsql.hrl").
-
 -include("pgsql_listen.hrl").
 
 %% @spec close(Conn) -> ok
@@ -25,7 +23,7 @@
 %% @end
 %%
 close(Conn) ->
-  pgsql:close(Conn).
+  epgsql:close(Conn).
 
 %% @spec connect(DSN) -> Result
 %% @doc Create a new PostgreSQL connection
@@ -36,9 +34,10 @@ close(Conn) ->
 %%
 connect(#pgsql_listen_dsn{host=Host, port=Port, user=User,
                           password=Password, dbname=DBName}) ->
-  pgsql:connect(Host, User, Password, [{database, DBName},
-                                       {port, Port},
-                                       {async, self()}]).
+   epgsql:connect(Host, User, Password, [{database, DBName},
+                                         {port, Port},
+                                         {timeout, 2500},
+                                         {async, self()}]).
 
 %% @spec listen(Connection, Channel) -> Result
 %% @where
@@ -72,7 +71,9 @@ unlisten(Connection, Channel) ->
 %% @end
 %%
 query(Connection, SQL) ->
-  case pgsql:squery(Connection, SQL) of
-    {ok, _Columns, _Rows} -> ok;
+  case epgsql:squery(Connection, SQL) of
+    {ok, _} -> ok;
+    {ok, _, _} -> ok;
+    {ok, _, _, _} -> ok;
     {error, Error} -> {error, Error}
   end.
