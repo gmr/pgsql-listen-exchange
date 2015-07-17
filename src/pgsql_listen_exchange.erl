@@ -1,6 +1,6 @@
 %%==============================================================================
 %% @author Gavin M. Roy <gavinr@aweber.com>
-%% @copyright 2014 AWeber Communications
+%% @copyright 2014-2015 AWeber Communications
 %% @end
 %%==============================================================================
 
@@ -35,26 +35,21 @@
                                   [exchange, ?X_TYPE]}},
                    {enables,     recovery}]}).
 
--include_lib("rabbit_common/include/rabbit.hrl").
-
-add_binding(transaction, _, _) ->
-  ok;
+add_binding(transaction, _, _) -> ok;
 add_binding(none, X, B) ->
   gen_server_call({add_binding, X, B}).
 
 assert_args_equivalence(X, Args) ->
   rabbit_exchange:assert_args_equivalence(X, Args).
 
-create(transaction, _X) ->
-    ok;
+create(transaction, _X) -> ok;
 create(none, X) ->
   gen_server_call({create, X}).
 
 description() ->
   [{name, ?X_TYPE}, {description, ?X_DESC}].
 
-delete(transaction, _, _) ->
-  ok;
+delete(transaction, _, _) -> ok;
 delete(none, X, Bs) ->
   gen_server_call({delete, X, Bs}).
 
@@ -67,11 +62,9 @@ policy_changed(OldX, NewX) ->
       Else
   end.
 
-recover(_, _) ->
-  ok.
+recover(_, _) -> ok.
 
-remove_bindings(transaction, _, _) ->
-  ok;
+remove_bindings(transaction, _, _) ->  ok;
 remove_bindings(none, X, Bs) ->
   gen_server_call({remove_bindings, X, Bs}).
 
