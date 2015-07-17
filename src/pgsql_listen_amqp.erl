@@ -1,6 +1,6 @@
 %%==============================================================================
 %% @author Gavin M. Roy <gavinr@aweber.com>
-%% @copyright 2014 AWeber Communications
+%% @copyright 2014-2015 AWeber Communications
 %% @end
 %%==============================================================================
 
@@ -11,9 +11,9 @@
 
 -export([open/1,
          close/2,
-         publish/6]).
+         publish/5]).
 
--include_lib("amqp_client/include/amqp_client.hrl").
+-include("pgsql_listen.hrl").
 
 %% @spec open(VHost) -> Result
 %% @where
@@ -45,27 +45,21 @@ close(Connection, Channel) ->
   amqp_connection:close(Connection),
   ok.
 
-%% @spec publish(Channel, X, Key, Headers, Body, DeliveryMode) -> Result
+%% @spec publish(Channel, X, Key, Body, Properties) -> Result
 %% @where
-%%       Channel = pid()
-%%       X       = binary()
-%%       Key     = binary()
-%%       Headers = tuple()
-%%       Body    = binary()
-%%       DeliveryMode = long()
+%%       Channel    = pid()
+%%       X          = binary()
+%%       Key        = binary()
+%%       Body       = binary()
+%%       Properties = #properties
 %%       Result  = ok | {error, Reason}
 %% @doc Publish a message to RabbitMQ using the internal channel
 %% @end
 %%
-publish(Channel, X, Key, Headers, Body, DeliveryMode) ->
-  BasicPublish = #'basic.publish'{exchange=X, routing_key=Key},
-  Properties = #'P_basic'{app_id = <<"pgsql-listen-exchange">>,
-                          delivery_mode = DeliveryMode,
-                          headers = Headers,
-                          timestamp = current_timestamp()},
+publish(Channel, X, Key, Body, Properties) ->
   case amqp_channel:call(Channel,
-                         BasicPublish,
-                         #amqp_msg{props=Properties, payload=Body}) of
+                         #'basic.publish'{exchange=X, routing_key=Key},
+                         #amqp_msg{props=properties(Properties), payload=Body}) of
       ok -> ok;
       Other -> {error, Other}
   end.
@@ -81,3 +75,40 @@ current_gregorian_timestamp() ->
 %% @private
 current_timestamp() ->
   convert_gregorian_to_julian(current_gregorian_timestamp()).
+
+%% @private
+properties(Properties) ->
+  P1 = #'P_basic'{app_id = <<"pgsql-listen-exchange">>,
+                  delivery_mode = Properties#properties.delivery_mode,
+                  headers = Properties#properties.headers,
+                  timestamp = current_timestamp()},
+  P2 = maybe_add_content_encoding(P1, Properties),
+  P3 = maybe_add_content_type(P2, Properties),
+  P4 = maybe_add_priority(P3, Properties),
+  P5 = maybe_add_reply_to(P4, Properties),
+  maybe_add_type(P5, Properties).
+
+%% @private
+maybe_add_content_encoding(Properties, #properties{content_encoding=Value}) when Value =/= null ->
+  Properties#'P_basic'{content_encoding = Value};
+maybe_add_content_encoding(Properties, _) -> Properties.
+
+%% @private
+maybe_add_content_type(Properties, #properties{content_type=Value}) when Value =/= null ->
+  Properties#'P_basic'{content_type = Value};
+maybe_add_content_type(Properties, _) -> Properties.
+
+%% @private
+maybe_add_priority(Properties, #properties{priority=Value}) when Value =/= null ->
+  Properties#'P_basic'{priority = Value};
+maybe_add_priority(Properties, _) -> Properties.
+
+%% @private
+maybe_add_reply_to(Properties, #properties{reply_to=Value}) when Value =/= null ->
+  Properties#'P_basic'{reply_to = Value};
+maybe_add_reply_to(Properties, _) -> Properties.
+
+%% @private
+maybe_add_type(Properties, #properties{type=Value}) when Value =/= null ->
+  Properties#'P_basic'{type = Value};
+maybe_add_type(Properties, _) -> Properties.

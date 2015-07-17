@@ -1,6 +1,6 @@
 %%==============================================================================
 %% @author Gavin M. Roy <gavinr@aweber.com>
-%% @copyright 2014 AWeber Communications
+%% @copyright 2014-2015 AWeber Communications
 %% @end
 %%==============================================================================
 
@@ -67,25 +67,31 @@ add_binding(#exchange{name=Name},
 %%       Channel to the bound exchange
 %% @end
 %%
-publish_notification(Conn, Channel, Payload,
-                     #pgsql_listen_state{amqp=AMQP, pgsql=PgSQL}) ->
-
+publish_notification(Conn, Channel, Payload, State) ->
   Connection = dict:filter(fun(_, V) -> V#pgsql_listen_conn.pid == Conn end,
-                           PgSQL),
+                           State#pgsql_listen_state.pgsql),
+
   [Key] = dict:fetch_keys(Connection),
   {resource, VHost, exchange, X} = Key,
+
   Value = dict:fetch(Key, Connection),
-  case dict:find(VHost, AMQP) of
+
+  Headers = [{<<"pgsql-channel">>, longstr, Channel},
+             {<<"pgsql-dbname">>, longstr, Value#pgsql_listen_conn.dbname},
+             {<<"pgsql-server">>, longstr, Value#pgsql_listen_conn.server},
+             {<<"source-exchange">>, longstr, X}],
+
+  Properties = #properties{content_encoding=get_binding_longstr(Key, Channel, <<"content_encoding">>),
+                           content_type=get_binding_longstr(Key, Channel, <<"content_type">>),
+                           delivery_mode=get_delivery_mode(Key, Channel),
+                           headers=Headers,
+                           priority=get_binding_long(Key, Channel, <<"priority">>),
+                           reply_to=get_binding_longstr(Key, Channel, <<"reply_to">>),
+                           type=get_binding_longstr(Key, Channel, <<"type">>)},
+
+  case dict:find(VHost, State#pgsql_listen_state.amqp) of
     {ok, {_, Chan}} ->
-      case pgsql_listen_amqp:publish(Chan, X,
-                                     Channel,
-                                     [{<<"pgsql-channel">>, longstr, Channel},
-                                      {<<"pgsql-dbname">>, longstr,
-                                       Value#pgsql_listen_conn.dbname},
-                                      {<<"pgsql-server">>, longstr,
-                                       Value#pgsql_listen_conn.server},
-                                      {<<"source-exchange">>, longstr, X}],
-                                       Payload, get_delivery_mode(Key, Channel)) of
+      case pgsql_listen_amqp:publish(Chan, X, Channel, Payload, Properties) of
         ok -> ok;
         {error, Error} ->
           rabbit_log:error("pgsql_listen_lib publish error: ~p~n", [Error]),
@@ -94,18 +100,6 @@ publish_notification(Conn, Channel, Payload,
     error ->
       ok
   end.
-  
-get_delivery_mode(Exchange, Channel) ->
-    Bindings = rabbit_binding:list_for_source(Exchange),
-    case lists:keyfind(Channel, #binding.key, Bindings) of
-        Binding when is_record(Binding, binding) ->
-            case lists:keyfind(<<"delivery_mode">>, 1, Binding#binding.args) of
-                {_, Type, Value} when Type == long, Value >= 1, Value =< 2 -> Value;
-                false -> 1;
-                _ -> 1
-            end;
-        false -> 1
-    end.
 
 %% @spec remove_bindings(X, Bs, State) -> Result
 %% @where
@@ -311,6 +305,50 @@ ensure_pgsql_connection(X=#exchange{name=Name}, PgSQL) ->
           {error, Error}
       end
   end.
+
+%% @private
+get_binding_long(Exchange, Channel, Key) ->
+  case get_binding_args(Exchange, Channel) of
+    {ok, Args} ->
+      case lists:keyfind(Key, 1, Args) of
+        {_, long, Value} -> Value;
+        false -> null;
+        _ -> null
+      end;
+    {err, not_found} -> null
+   end.
+
+%% @private
+get_binding_longstr(Exchange, Channel, Key) ->
+  case get_binding_args(Exchange, Channel) of
+    {ok, Args} ->
+      case lists:keyfind(Key, 1, Args) of
+        {_, longstr, Value} -> Value;
+        false -> null;
+        _ -> null
+      end;
+    {err, not_found} -> null
+   end.
+
+%% @private
+get_delivery_mode(Exchange, Channel) ->
+  case get_binding_args(Exchange, Channel) of
+    {ok, Args} ->
+      case lists:keyfind(<<"delivery_mode">>, 1, Args) of
+        {_, long, Value} when Value >= 1, Value =< 2 -> Value;
+        false -> 1;
+        _ -> 1
+      end;
+    {err, not_found} -> 1
+   end.
+
+%% @private
+get_binding_args(Exchange, Channel) ->
+    Bindings = rabbit_binding:list_for_source(Exchange),
+    case lists:keyfind(Channel, #binding.key, Bindings) of
+      Binding when is_record(Binding, binding) -> {ok,  Binding#binding.args};
+      _ -> {err, not_found}
+    end.
 
 %% @private
 %% @spec get_env(EnvVar, DefaultValue) -> Value
