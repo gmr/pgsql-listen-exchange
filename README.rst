@@ -136,7 +136,7 @@ should be set to when binding a queue to the exchange.  The following message
 properties are supported:
 
 +------------------+-----------+
-| Property         | Data Type |                                         |
+| Property         | Data Type |
 +==================+===========+
 | content_encoding | String    |
 +------------------+-----------+
