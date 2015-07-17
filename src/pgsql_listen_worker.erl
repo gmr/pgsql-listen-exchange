@@ -105,7 +105,11 @@ handle_cast(Cast, State) ->
   rabbit_log:error("pgsql_listen_worker unknown_cast: ~p, ~p~n", [Cast, State]),
   {noreply, State}.
 
-handle_info({pgsql, Conn, {notification, Channel, _, Payload}}, State) ->
+handle_info({epgsql, Conn, {notice, Error}}, State) ->
+  rabbit_log:error("pgsql_listen_worker postgres error: ~p, ~p~n", [Conn, Error]),
+  {noreply, State};
+
+handle_info({epgsql, Conn, {notification, Channel, _, Payload}}, State) ->
   pgsql_listen_lib:publish_notification(Conn, Channel, Payload, State),
   {noreply, State};
 
