@@ -20,28 +20,10 @@ command in psql:
 
     postgres=# NOTIFY test, 'This is a test';
 
-Download
---------
-To download the pgsql-listen exchange, select the appropriate file that matches
-the RabbitMQ version you are running:
-
-+---------+------------+----------+-----------------------+----------------------------------+
-| Version |  Released  | RabbitMQ | Short URL             | MD5 Hash                         |
-+=========+============+==========+=======================+==================================+
-|  0.2.0  | 2014-06-17 | v 3.3.x  | http://bit.ly/1ndl8eK | 63a3343640abc5524df5694d3cc37528 |
-+---------+------------+----------+-----------------------+----------------------------------+
-|  0.1.0  | 2014-04-14 | v 3.3.x  | http://bit.ly/1iQ8elR | 554f85b005eddd09bd6917d26ece6c3f |
-+---------+------------+----------+-----------------------+----------------------------------+
-
-The file is a zip file containing both the pgsql-listen-exchange plugin ez file
-and the epgsql dependency ez file. Distributable zip files are committed in the
-binaries branch of this repository. Files are served via GitHub's RAW download
-functionality.
-
 Installation
 ------------
-Extract the contents of the zip file into your RabbitMQ plugins directory. Once
-extracted, run ``rabbitmq-plugins enable pgsql_listen_exchange``.
+Extract the contents of the release zip file into your RabbitMQ plugins
+directory. Once extracted, run ``rabbitmq-plugins enable pgsql_listen_exchange``.
 
 Configuration
 -------------
@@ -84,7 +66,6 @@ To apply configuration via a policy, the following settings are available:
 | pgsql-listen-password   | The password to use when connecting  | String    |
 +-------------------------+--------------------------------------+-----------+
 
-
 **Configuration in rabbitmq.config**
 
 You can also change the default connection values in the ``rabbitmq.config`` file:
@@ -117,16 +98,69 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
       ]}
     ].
 
+Message Properties
+------------------
+The exchange will automatically the following properties to messages:
+
++-----------+---------------------------------------------------+
+| Property  | Value                                             |
++===========+===================================================+
+| app_id    | ``pgsql-listen-exchange``                         |
++-----------+---------------------------------------------------+
+| headers   | *See "Headers Properties Values" table below*     |
++-----------+---------------------------------------------------+
+| timestamp | The UNIX epoch timestamp of the publishing server |
++-----------+---------------------------------------------------+
+
+Headers Property Values
+^^^^^^^^^^^^^^^^^^^^^^^
+The following table details the values of the headers property that is set on each message.
+
++-----------------+-----------------------------------------------------------------+
+| Key             | Value                                                           |
++=================+=================================================================+
+| pgsql-channel   | The PostgreSQL notification channel                             |
++-----------------+-----------------------------------------------------------------+
+| pgsql-server    | The host and port of the PostgreSQL server                      |
++-----------------+-----------------------------------------------------------------+
+| source-exchange | The pgsql-listen-exchange that the notification was received by |
++-----------------+-----------------------------------------------------------------+
+
+Specifying Other Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In addition to the automatically set message properties, the exchange can set
+configured message properties. To set one of the supported message properties,
+specify the property name and value when binding to the exchange. For example,
+to set the ``content_type`` property, specify ``content_type`` and the value it
+should be set to when binding a queue to the exchange.  The following message
+properties are supported:
+
++------------------+-----------+
+| Property         | Data Type |                                         |
++==================+===========+
+| content_encoding | String    |
++------------------+-----------+
+| content_type     | String    |
++------------------+-----------+
+| delivery_mode    | Number    |
++------------------+-----------+
+| priority         | Number    |
++------------------+-----------+
+| reply_to         | String    |
++------------------+-----------+
+| type             | String    |
++------------------+-----------+
+
 Building
 --------
-Steps to custom build a version of the pgsql-listen exchange plugin:
+Steps to custom build a version of the pgsql-listen-exchange plugin:
 
 .. code-block:: bash
 
-    hg clone http://hg.rabbitmq.com/rabbitmq-public-umbrella
+    git clone https://github.com/rabbitmq/rabbitmq-public-umbrella
     cd rabbitmq-public-umbrella
     make co
-    make BRANCH=rabbitmq_v3_5_1 up_c
+    make BRANCH=rabbitmq_v3_5_4 up_c
     git clone https://github.com/gmr/epgsql-wrapper.git
     git clone https://github.com/aweber/pgsql-listen-exchange.git
     cd rabbitmq-pgsql-listen-exchange
