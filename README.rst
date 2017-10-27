@@ -100,7 +100,7 @@ You can also change the default connection values in the ``rabbitmq.config`` fil
 
 Message Properties
 ------------------
-The exchange will automatically the following properties to messages:
+The exchange will automatically add the following properties to messages:
 
 +-----------+---------------------------------------------------+
 | Property  | Value                                             |
