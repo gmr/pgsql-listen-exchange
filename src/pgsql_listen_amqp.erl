@@ -1,6 +1,6 @@
 %%==============================================================================
 %% @author Gavin M. Roy <gavinr@aweber.com>
-%% @copyright 2014-2015 AWeber Communications
+%% @copyright 2014-2020 AWeber Communications
 %% @end
 %%==============================================================================
 
@@ -65,23 +65,11 @@ publish(Channel, X, Key, Body, Properties) ->
   end.
 
 %% @private
-convert_gregorian_to_julian(GregorianSeconds) ->
-  GregorianSeconds - 719528 * 24 * 3600.
-
-%% @private
-current_gregorian_timestamp() ->
-  calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(now())).
-
-%% @private
-current_timestamp() ->
-  convert_gregorian_to_julian(current_gregorian_timestamp()).
-
-%% @private
 properties(Properties) ->
   P1 = #'P_basic'{app_id = <<"pgsql-listen-exchange">>,
                   delivery_mode = Properties#properties.delivery_mode,
                   headers = Properties#properties.headers,
-                  timestamp = current_timestamp()},
+                  timestamp = erlang:system_time(seconds)},
   P2 = maybe_add_content_encoding(P1, Properties),
   P3 = maybe_add_content_type(P2, Properties),
   P4 = maybe_add_priority(P3, Properties),

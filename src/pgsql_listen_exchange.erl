@@ -1,6 +1,6 @@
 %%==============================================================================
 %% @author Gavin M. Roy <gavinr@aweber.com>
-%% @copyright 2014-2015 AWeber Communications
+%% @copyright 2014-2020 AWeber Communications
 %% @end
 %%==============================================================================
 
@@ -16,6 +16,8 @@
          create/2,
          description/0,
          delete/3,
+         info/1,
+         info/2,
          policy_changed/2,
          recover/2,
          route/2,
@@ -52,6 +54,9 @@ description() ->
 delete(transaction, _, _) -> ok;
 delete(none, X, Bs) ->
   gen_server_call({delete, X, Bs}).
+
+info(_X) -> [].
+info(_X, _) -> [].
 
 policy_changed(OldX, NewX) ->
   Bs = rabbit_binding:list_for_source(OldX),

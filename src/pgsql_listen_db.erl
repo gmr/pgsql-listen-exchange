@@ -1,6 +1,6 @@
 %%==============================================================================
 %% @author Gavin M. Roy <gavinr@aweber.com>
-%% @copyright 2014-2015 AWeber Communications
+%% @copyright 2014-2020 AWeber Communications
 %% @end
 %%==============================================================================
 

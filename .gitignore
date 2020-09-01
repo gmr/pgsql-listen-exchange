@@ -1,4 +1,8 @@
-.DS_Store
-build
-dist
+.erlang.mk
+test.env
+deps
 ebin
+escript
+logs
+plugins
+sbin

@@ -1,0 +1,14 @@
+name: Build
+on:
+  push:
+    branches-ignore: ["*"]
+    tags: ["*"]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags') && github.repository == 'gmr/pgsql-listen-exchange'
+    container: erlang:aline
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v1
+

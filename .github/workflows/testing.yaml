@@ -1,0 +1,33 @@
+name: Testing
+on:
+  push:
+    branches: ["*"]
+    tags-ignore: ["*"]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    services:
+      postgres:
+        image: postgres:latest
+        options: >-
+          --health-cmd "/usr/bin/pg_isready"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 5
+        ports:
+          - 5432
+    strategy:
+      matrix:
+        erlang: [20,21,22,23]
+    container:
+      image: erlang:${{ matrix.python }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v1
+
+      - name: Run tests
+        run: make tests
+        env:
+          POSTGRES_HOST: postgres
+          POSTGRES_PORT: 5432

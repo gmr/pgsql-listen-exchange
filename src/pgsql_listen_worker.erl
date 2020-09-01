@@ -1,6 +1,6 @@
 %%==============================================================================
 %% @author Gavin M. Roy <gavinr@aweber.com>
-%% @copyright 2014-2015 AWeber Communications
+%% @copyright 2014-2020 AWeber Communications
 %% @end
 %%==============================================================================
 
@@ -36,9 +36,7 @@ start_link() ->
 init([]) ->
   rabbit_log:info("starting pgsql-listen exchange worker.~n"),
   register(pgsql_listen_worker, self()),
-  {ok, #pgsql_listen_state{amqp=dict:new(),
-                           channels=dict:new(),
-                           pgsql=dict:new()}}.
+  {ok, #pgsql_listen_state{amqp=dict:new(), channels=dict:new(), pgsql=dict:new()}}.
 
 % -------------------------
 % Gen Server Implementation
