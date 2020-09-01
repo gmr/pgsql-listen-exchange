@@ -19,15 +19,12 @@ jobs:
           --health-retries 5
         ports:
           - 5432
+    container:
+      image: ghcr.io/gmr/erlang-elixir:21.3-1.10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v1
-
-      - name: Login to ghcr.io
-        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u gmr --password-stdin
-
       - name: Run tests
-        uses: docker://ghcr.io/gmr/erlang-elixir:21.3-1.10
         run: make tests
         env:
           POSTGRES_HOST: postgres
