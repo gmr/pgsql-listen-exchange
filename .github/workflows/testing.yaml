@@ -19,9 +19,9 @@ jobs:
           - 5432
     strategy:
       matrix:
-        erlang: [20,21,22,23]
+        erlang: [21,22,23]
     container:
-      image: erlang:${{ matrix.python }}
+      image: erlang:${{ matrix.erlang }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v1
