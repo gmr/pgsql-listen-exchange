@@ -9,6 +9,7 @@
          {dbname, <<"postgres">>},
          {password, <<"">>},
          {user, <<"postgres">>}]},
-  {applications, [kernel, stdlib, rabbit, epgsql, amqp_client]}
+  {applications, [kernel, stdlib, rabbit, epgsql, amqp_client]},
+  {broker_version_requirements, ["3.8.0"]}
  ]
 }.

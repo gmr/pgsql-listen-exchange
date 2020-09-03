@@ -6,3 +6,4 @@ escript
 logs
 plugins
 sbin
+pgsql-listen-exchange.d

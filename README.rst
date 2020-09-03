@@ -153,15 +153,14 @@ properties are supported:
 
 Building
 --------
-Steps to custom build a version of the pgsql-listen-exchange plugin:
+Steps to custom build a version of the pgsql-listen-exchange plugin follow the
+development environment instructions at https://www.rabbitmq.com/build-server.html#prerequisites
+and then run the following:
 
 .. code-block:: bash
 
-    git clone https://github.com/rabbitmq/rabbitmq-public-umbrella
-    cd rabbitmq-public-umbrella
-    make co
-    make BRANCH=rabbitmq_v3_5_4 up_c
-    git clone https://github.com/gmr/epgsql-wrapper.git
-    git clone https://github.com/aweber/pgsql-listen-exchange.git
-    cd rabbitmq-pgsql-listen-exchange
-    make
+    make tests
+    make dist
+    zip -r pgsql-listen-exchange.zip plugins/epgsql-* plugins/pgsql-listen-exchange-*
+
+Unzip that file into the plugins directory for RabbitMQ and enable as you would any other plugin.
