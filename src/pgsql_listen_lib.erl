@@ -10,17 +10,19 @@
 
 -module(pgsql_listen_lib).
 
--export([add_binding/3,
-         publish_notification/4,
-         remove_bindings/3,
-         start_exchange/2,
-         stop_exchange/2,
-         validate_pgsql_connection/1,
-         validate_pgsql_host/1,
-         validate_pgsql_port/1,
-         validate_pgsql_dbname/1,
-         validate_pgsql_user/1,
-         validate_pgsql_password/1]).
+-export([
+    add_binding/3,
+    publish_notification/4,
+    remove_bindings/3,
+    start_exchange/2,
+    stop_exchange/2,
+    validate_pgsql_connection/1,
+    validate_pgsql_host/1,
+    validate_pgsql_port/1,
+    validate_pgsql_dbname/1,
+    validate_pgsql_user/1,
+    validate_pgsql_password/1
+]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -35,26 +37,28 @@
 %% @doc Add a binding to the exchange
 %% @end
 %%
-add_binding(#exchange{name=Name},
-            #binding{key=Key, source={resource, VHost, exchange, _}},
-            State=#pgsql_listen_state{amqp=AMQP, channels=Cs, pgsql=PgSQL}) ->
-  case ensure_amqp_connection(VHost, AMQP) of
-    {ok, NAMQP} ->
-      case ensure_channel_binding_references(binary_to_list(Key), Name, Cs) of
-        {ok, NCs} ->
-          case listen_to_pgsql_channel(Name, binary_to_list(Key), PgSQL) of
-            ok ->
-              NS = State#pgsql_listen_state{amqp=NAMQP, channels=NCs},
-              {ok, NS};
-            {error, Error} ->
-              {error, Error}
-          end;
+add_binding(
+    #exchange{name = Name},
+    #binding{key = Key, source = {resource, VHost, exchange, _}},
+    State = #pgsql_listen_state{amqp = AMQP, channels = Cs, pgsql = PgSQL}
+) ->
+    case ensure_amqp_connection(VHost, AMQP) of
+        {ok, NAMQP} ->
+            case ensure_channel_binding_references(binary_to_list(Key), Name, Cs) of
+                {ok, NCs} ->
+                    case listen_to_pgsql_channel(Name, binary_to_list(Key), PgSQL) of
+                        ok ->
+                            NS = State#pgsql_listen_state{amqp = NAMQP, channels = NCs},
+                            {ok, NS};
+                        {error, Error} ->
+                            {error, Error}
+                    end;
+                {error, Error} ->
+                    {error, Error}
+            end;
         {error, Error} ->
-          {error, Error}
-      end;
-    {error, Error} ->
-      {error, Error}
-  end.
+            {error, Error}
+    end.
 
 %% @spec start_exchange(X, State) -> ok
 %% @where
@@ -68,38 +72,45 @@ add_binding(#exchange{name=Name},
 %% @end
 %%
 publish_notification(Conn, Channel, Payload, State) ->
-  Connection = dict:filter(fun(_, V) -> V#pgsql_listen_conn.pid == Conn end,
-                           State#pgsql_listen_state.pgsql),
+    Connection = dict:filter(
+        fun(_, V) -> V#pgsql_listen_conn.pid == Conn end,
+        State#pgsql_listen_state.pgsql
+    ),
 
-  [Key] = dict:fetch_keys(Connection),
-  {resource, VHost, exchange, X} = Key,
+    [Key] = dict:fetch_keys(Connection),
+    {resource, VHost, exchange, X} = Key,
 
-  Value = dict:fetch(Key, Connection),
+    Value = dict:fetch(Key, Connection),
 
-  Headers = [{<<"pgsql-channel">>, longstr, Channel},
-             {<<"pgsql-dbname">>, longstr, Value#pgsql_listen_conn.dbname},
-             {<<"pgsql-server">>, longstr, Value#pgsql_listen_conn.server},
-             {<<"source-exchange">>, longstr, X}],
+    Headers = [
+        {<<"pgsql-channel">>, longstr, Channel},
+        {<<"pgsql-dbname">>, longstr, Value#pgsql_listen_conn.dbname},
+        {<<"pgsql-server">>, longstr, Value#pgsql_listen_conn.server},
+        {<<"source-exchange">>, longstr, X}
+    ],
 
-  Properties = #properties{content_encoding=get_binding_longstr(Key, Channel, <<"content_encoding">>),
-                           content_type=get_binding_longstr(Key, Channel, <<"content_type">>),
-                           delivery_mode=get_delivery_mode(Key, Channel),
-                           headers=Headers,
-                           priority=get_binding_long(Key, Channel, <<"priority">>),
-                           reply_to=get_binding_longstr(Key, Channel, <<"reply_to">>),
-                           type=get_binding_longstr(Key, Channel, <<"type">>)},
+    Properties = #properties{
+        content_encoding = get_binding_longstr(Key, Channel, <<"content_encoding">>),
+        content_type = get_binding_longstr(Key, Channel, <<"content_type">>),
+        delivery_mode = get_delivery_mode(Key, Channel),
+        headers = Headers,
+        priority = get_binding_long(Key, Channel, <<"priority">>),
+        reply_to = get_binding_longstr(Key, Channel, <<"reply_to">>),
+        type = get_binding_longstr(Key, Channel, <<"type">>)
+    },
 
-  case dict:find(VHost, State#pgsql_listen_state.amqp) of
-    {ok, {_, Chan}} ->
-      case pgsql_listen_amqp:publish(Chan, X, Channel, Payload, Properties) of
-        ok -> ok;
-        {error, Error} ->
-          rabbit_log:error("pgsql_listen_lib publish error: ~p~n", [Error]),
-          ok
-      end;
-    error ->
-      ok
-  end.
+    case dict:find(VHost, State#pgsql_listen_state.amqp) of
+        {ok, {_, Chan}} ->
+            case pgsql_listen_amqp:publish(Chan, X, Channel, Payload, Properties) of
+                ok ->
+                    ok;
+                {error, Error} ->
+                    rabbit_log:error("pgsql_listen_lib publish error: ~p~n", [Error]),
+                    ok
+            end;
+        error ->
+            ok
+    end.
 
 %% @spec remove_bindings(X, Bs, State) -> Result
 %% @where
@@ -111,12 +122,12 @@ publish_notification(Conn, Channel, Payload, State) ->
 %% @end
 %%
 remove_bindings(_, [], State) ->
-  {ok, State};
+    {ok, State};
 remove_bindings(X, [Binding | ListTail], State) ->
-  case remove_binding(X, Binding, State) of
-    {ok, NewState} -> remove_bindings(X, ListTail, NewState);
-    {error, Error} -> {error, Error}
-  end.
+    case remove_binding(X, Binding, State) of
+        {ok, NewState} -> remove_bindings(X, ListTail, NewState);
+        {error, Error} -> {error, Error}
+    end.
 
 %% @spec start_exchange(X, State) -> Result
 %% @where
@@ -128,13 +139,13 @@ remove_bindings(X, [Binding | ListTail], State) ->
 %%
 %% @end
 %%
-start_exchange(X, State=#pgsql_listen_state{pgsql=PgSQL}) ->
-  case ensure_pgsql_connection(X, PgSQL) of
-    {ok, NPgSQL} ->
-      {ok, State#pgsql_listen_state{pgsql=NPgSQL}};
-    {error, Error} ->
-      {error, Error}
-  end.
+start_exchange(X, State = #pgsql_listen_state{pgsql = PgSQL}) ->
+    case ensure_pgsql_connection(X, PgSQL) of
+        {ok, NPgSQL} ->
+            {ok, State#pgsql_listen_state{pgsql = NPgSQL}};
+        {error, Error} ->
+            {error, Error}
+    end.
 
 %% @spec stop_exchange(X, State) -> Result
 %% @where
@@ -147,7 +158,7 @@ start_exchange(X, State=#pgsql_listen_state{pgsql=PgSQL}) ->
 %% @end
 %%
 stop_exchange(X, State) ->
-  stop_pgsql_connection(X, State).
+    stop_pgsql_connection(X, State).
 
 %% @spec validate_pgsql_exchange(X) -> Result
 %% @where
@@ -157,12 +168,12 @@ stop_exchange(X, State) ->
 %% @end
 %%
 validate_pgsql_connection(X) ->
-  case pgsql_listen_db:connect(get_pgsql_dsn(X)) of
-    {ok, Conn} ->
-      pgsql_listen_db:close(Conn);
-    {error, Error} ->
-      {error, Error}
-  end.
+    case pgsql_listen_db:connect(get_pgsql_dsn(X)) of
+        {ok, Conn} ->
+            pgsql_listen_db:close(Conn);
+        {error, Error} ->
+            {error, Error}
+    end.
 
 %% @spec validate_pgsql_dbname(Value) -> Result
 %% @where
@@ -172,9 +183,9 @@ validate_pgsql_connection(X) ->
 %% @end
 %%
 validate_pgsql_dbname(none) ->
-  ok;
+    ok;
 validate_pgsql_dbname(Value) ->
-  validate_binary_or_none("pgsql-listen-dbname", Value).
+    validate_binary_or_none("pgsql-listen-dbname", Value).
 
 %% @spec validate_pgsql_host(Value) -> Result
 %% @where
@@ -184,9 +195,9 @@ validate_pgsql_dbname(Value) ->
 %% @end
 %%
 validate_pgsql_host(none) ->
-  ok;
+    ok;
 validate_pgsql_host(Value) ->
-  validate_binary_or_none("pgsql-listen-host", Value).
+    validate_binary_or_none("pgsql-listen-host", Value).
 
 %% @spec validate_pgsql_password(Value) -> Result
 %% @where
@@ -196,9 +207,9 @@ validate_pgsql_host(Value) ->
 %% @end
 %%
 validate_pgsql_password(none) ->
-  ok;
+    ok;
 validate_pgsql_password(Value) ->
-  validate_binary_or_none("pgsql-listen-password", Value).
+    validate_binary_or_none("pgsql-listen-password", Value).
 
 %% @spec validate_pgsql_port(Value) -> Result
 %% @where
@@ -208,11 +219,11 @@ validate_pgsql_password(Value) ->
 %% @end
 %%
 validate_pgsql_port(none) ->
-  ok;
+    ok;
 validate_pgsql_port(Value) when is_number(Value) ->
-  ok;
+    ok;
 validate_pgsql_port(Value) ->
-  {error, "pgsql-listen-port should be a number, actually was ~p", [Value]}.
+    {error, "pgsql-listen-port should be a number, actually was ~p", [Value]}.
 
 %% @spec validate_pgsql_user(Value) -> Result
 %% @where
@@ -222,9 +233,9 @@ validate_pgsql_port(Value) ->
 %% @end
 %%
 validate_pgsql_user(none) ->
-  ok;
+    ok;
 validate_pgsql_user(Value) ->
-  validate_binary_or_none("pgsql-listen-user", Value).
+    validate_binary_or_none("pgsql-listen-user", Value).
 
 %% ---------------
 %% Private Methods
@@ -241,18 +252,19 @@ validate_pgsql_user(Value) ->
 %% @end
 %%
 ensure_amqp_connection(VHost, AMQP) ->
-  case dict:find(VHost, AMQP) of
-    {ok, _} -> {ok, AMQP};
-    error ->
-      case pgsql_listen_amqp:open(VHost) of
-        {ok, Connection, Channel} ->
-          rabbit_log:info('pgsql_listen_amqp_open: ok~n'),
-          {ok, dict:store(VHost, {Connection, Channel}, AMQP)};
-        {error, {{_, {error, Error}}, _}} ->
-          rabbit_log:info('pgsql_listen_amqp_open: error: ~p~n', [Error]),
-          {error, Error}
-      end
-  end.
+    case dict:find(VHost, AMQP) of
+        {ok, _} ->
+            {ok, AMQP};
+        error ->
+            case pgsql_listen_amqp:open(VHost) of
+                {ok, Connection, Channel} ->
+                    rabbit_log:info('pgsql_listen_amqp_open: ok~n'),
+                    {ok, dict:store(VHost, {Connection, Channel}, AMQP)};
+                {error, {{_, {error, Error}}, _}} ->
+                    rabbit_log:info('pgsql_listen_amqp_open: error: ~p~n', [Error]),
+                    {error, Error}
+            end
+    end.
 
 %% @private
 %% @spec ensure_channel_binding_references(Channel, X, Channels) -> Result
@@ -266,17 +278,17 @@ ensure_amqp_connection(VHost, AMQP) ->
 %% @end
 %%
 ensure_channel_binding_references(Channel, X, Channels) ->
-  case dict:find(Channel, Channels) of
-    {ok, Bindings} ->
-      case list_find(X, Bindings) of
-        true ->
-          {ok, Channels};
-        false ->
-          {ok, dict:store(Channel, lists:append(Bindings, [X]), Channels)}
-      end;
-    error ->
-      {ok, dict:store(Channel, [X], Channels)}
-  end.
+    case dict:find(Channel, Channels) of
+        {ok, Bindings} ->
+            case list_find(X, Bindings) of
+                true ->
+                    {ok, Channels};
+                false ->
+                    {ok, dict:store(Channel, lists:append(Bindings, [X]), Channels)}
+            end;
+        error ->
+            {ok, dict:store(Channel, [X], Channels)}
+    end.
 
 %% @private
 %% @spec ensure_pgsql_connection(X, PgSQL) -> Result
@@ -288,66 +300,75 @@ ensure_channel_binding_references(Channel, X, Channels) ->
 %%      application state, starting a new connection if not
 %% @end
 %%
-ensure_pgsql_connection(X=#exchange{name=Name}, PgSQL) ->
-  case dict:find(Name, PgSQL) of
-    {ok, _} -> {ok, PgSQL};
-    error ->
-      DSN = get_pgsql_dsn(X),
-      case pgsql_listen_db:connect(DSN) of
-        {ok, Conn} ->
-          {ok, dict:store(Name,
-                          #pgsql_listen_conn{pid=Conn,
-                                             server=get_pgsql_server(DSN),
-                                             dbname=get_pgsql_dbname(DSN)},
-                          PgSQL)};
-        {error, {{_, {error, Error}}, _}} ->
-          rabbit_log:info('pgsql_listen_amqp_open: error: ~p~n', [Error]),
-          {error, Error}
-      end
-  end.
+ensure_pgsql_connection(X = #exchange{name = Name}, PgSQL) ->
+    case dict:find(Name, PgSQL) of
+        {ok, _} ->
+            {ok, PgSQL};
+        error ->
+            DSN = get_pgsql_dsn(X),
+            case pgsql_listen_db:connect(DSN) of
+                {ok, Conn} ->
+                    {ok,
+                        dict:store(
+                            Name,
+                            #pgsql_listen_conn{
+                                pid = Conn,
+                                server = get_pgsql_server(DSN),
+                                dbname = get_pgsql_dbname(DSN)
+                            },
+                            PgSQL
+                        )};
+                {error, {{_, {error, Error}}, _}} ->
+                    rabbit_log:info('pgsql_listen_amqp_open: error: ~p~n', [Error]),
+                    {error, Error}
+            end
+    end.
 
 %% @private
 get_binding_long(Exchange, Channel, Key) ->
-  case get_binding_args(Exchange, Channel) of
-    {ok, Args} ->
-      case lists:keyfind(Key, 1, Args) of
-        {_, long, Value} -> Value;
-        false -> null;
-        _ -> null
-      end;
-    {err, not_found} -> null
-   end.
+    case get_binding_args(Exchange, Channel) of
+        {ok, Args} ->
+            case lists:keyfind(Key, 1, Args) of
+                {_, long, Value} -> Value;
+                false -> null;
+                _ -> null
+            end;
+        {err, not_found} ->
+            null
+    end.
 
 %% @private
 get_binding_longstr(Exchange, Channel, Key) ->
-  case get_binding_args(Exchange, Channel) of
-    {ok, Args} ->
-      case lists:keyfind(Key, 1, Args) of
-        {_, longstr, Value} -> Value;
-        false -> null;
-        _ -> null
-      end;
-    {err, not_found} -> null
-   end.
+    case get_binding_args(Exchange, Channel) of
+        {ok, Args} ->
+            case lists:keyfind(Key, 1, Args) of
+                {_, longstr, Value} -> Value;
+                false -> null;
+                _ -> null
+            end;
+        {err, not_found} ->
+            null
+    end.
 
 %% @private
 get_delivery_mode(Exchange, Channel) ->
-  case get_binding_args(Exchange, Channel) of
-    {ok, Args} ->
-      case lists:keyfind(<<"delivery_mode">>, 1, Args) of
-        {_, long, Value} when Value >= 1, Value =< 2 -> Value;
-        false -> 1;
-        _ -> 1
-      end;
-    {err, not_found} -> 1
-   end.
+    case get_binding_args(Exchange, Channel) of
+        {ok, Args} ->
+            case lists:keyfind(<<"delivery_mode">>, 1, Args) of
+                {_, long, Value} when Value >= 1, Value =< 2 -> Value;
+                false -> 1;
+                _ -> 1
+            end;
+        {err, not_found} ->
+            1
+    end.
 
 %% @private
 get_binding_args(Exchange, Channel) ->
     Bindings = rabbit_binding:list_for_source(Exchange),
     case lists:keyfind(Channel, #binding.key, Bindings) of
-      Binding when is_record(Binding, binding) -> {ok,  Binding#binding.args};
-      _ -> {err, not_found}
+        Binding when is_record(Binding, binding) -> {ok, Binding#binding.args};
+        _ -> {err, not_found}
     end.
 
 %% @private
@@ -361,12 +382,12 @@ get_binding_args(Exchange, Channel) ->
 %% @end
 %%
 get_env(EnvVar, DefaultValue) ->
-  case application:get_env(pgsql_listen, EnvVar) of
-    undefined ->
-      DefaultValue;
-    {ok, V} ->
-      V
-  end.
+    case application:get_env(pgsql_listen, EnvVar) of
+        undefined ->
+            DefaultValue;
+        {ok, V} ->
+            V
+    end.
 
 %% @private
 %% @spec get_parm(X, Name, DefaultValue) -> Value
@@ -382,16 +403,17 @@ get_env(EnvVar, DefaultValue) ->
 %% @end
 %%
 get_param(X, Name, DefaultValue) when is_atom(Name) ->
-  get_param(X, atom_to_list(Name), DefaultValue);
-get_param(X=#exchange{arguments=Args}, Name, DefaultValue) when is_list(Name) ->
-  case rabbit_policy:get(list_to_binary("pgsql-listen-" ++ Name), X) of
-    undefined -> get_param_value(Args, Name, DefaultValue);
-    Value     ->
-      case is_binary(Value) of
-        true  -> binary_to_list(Value);
-        false -> Value
-      end
-  end.
+    get_param(X, atom_to_list(Name), DefaultValue);
+get_param(X = #exchange{arguments = Args}, Name, DefaultValue) when is_list(Name) ->
+    case rabbit_policy:get(list_to_binary("pgsql-listen-" ++ Name), X) of
+        undefined ->
+            get_param_value(Args, Name, DefaultValue);
+        Value ->
+            case is_binary(Value) of
+                true -> binary_to_list(Value);
+                false -> Value
+            end
+    end.
 
 %% @private
 %% @spec get_param_env_value(Name, DefaultValue) -> Value
@@ -403,8 +425,8 @@ get_param(X=#exchange{arguments=Args}, Name, DefaultValue) when is_list(Name) ->
 %% key Name, returning DefaultValue if it's not specified
 %% @end
 %%
-get_param_env_value(Name, DefaultValue ) ->
-  get_env(list_to_atom(Name), DefaultValue).
+get_param_env_value(Name, DefaultValue) ->
+    get_env(list_to_atom(Name), DefaultValue).
 
 %% @private
 %% @spec get_param_list_value(Value) -> list()
@@ -414,11 +436,11 @@ get_param_env_value(Name, DefaultValue ) ->
 %% @end
 %%
 get_param_list_value(Value) when is_binary(Value) ->
-  binary_to_list(Value);
+    binary_to_list(Value);
 get_param_list_value(Value) when is_integer(Value) ->
-  integer_to_list(Value);
+    integer_to_list(Value);
 get_param_list_value(Value) when is_list(Value) ->
-  Value.
+    Value.
 
 %% @private
 %% @spec get_param_value(Args, Name, DefaultValue) -> Value
@@ -432,10 +454,10 @@ get_param_list_value(Value) when is_list(Value) ->
 %% @end
 %%
 get_param_value(Args, Name, DefaultValue) ->
-  case lists:keyfind(list_to_binary("x-" ++ Name), 1, Args) of
-    {_, _, V} -> get_param_list_value(V);
-            _ -> get_param_list_value(get_param_env_value(Name, DefaultValue))
-  end.
+    case lists:keyfind(list_to_binary("x-" ++ Name), 1, Args) of
+        {_, _, V} -> get_param_list_value(V);
+        _ -> get_param_list_value(get_param_env_value(Name, DefaultValue))
+    end.
 
 %% @private
 %% @spec get_pgsql_dbname(DSN) -> binary()
@@ -444,8 +466,8 @@ get_param_value(Args, Name, DefaultValue) ->
 %% @doc Return the database name as a binary
 %% @end
 %%
-get_pgsql_dbname(#pgsql_listen_dsn{dbname=DBName}) ->
-  list_to_binary(DBName).
+get_pgsql_dbname(#pgsql_listen_dsn{dbname = DBName}) ->
+    list_to_binary(DBName).
 
 %% @private
 %% @spec get_pgsql_dsn(X) -> pgsql_dsn
@@ -458,13 +480,18 @@ get_pgsql_dbname(#pgsql_listen_dsn{dbname=DBName}) ->
 %% @end
 %%
 get_pgsql_dsn(X) ->
-  Host = get_param(X, "host", ?DEFAULT_HOST),
-  Port = get_pgsql_port(get_param(X, "port", ?DEFAULT_PORT)),
-  User = get_param(X, "user", ?DEFAULT_USER),
-  Password = get_param(X, "password", ?DEFAULT_PASSWORD),
-  DBName = get_param(X, "dbname", ?DEFAULT_DBNAME),
-  #pgsql_listen_dsn{host=Host, port=Port, user=User, password=Password,
-                    dbname=DBName}.
+    Host = get_param(X, "host", ?DEFAULT_HOST),
+    Port = get_pgsql_port(get_param(X, "port", ?DEFAULT_PORT)),
+    User = get_param(X, "user", ?DEFAULT_USER),
+    Password = get_param(X, "password", ?DEFAULT_PASSWORD),
+    DBName = get_param(X, "dbname", ?DEFAULT_DBNAME),
+    #pgsql_listen_dsn{
+        host = Host,
+        port = Port,
+        user = User,
+        password = Password,
+        dbname = DBName
+    }.
 
 %% @private
 %% @spec get_pgsql_server(DSN) -> binary()
@@ -473,8 +500,8 @@ get_pgsql_dsn(X) ->
 %% @doc Return the formatted server name for the message headers
 %% @end
 %%
-get_pgsql_server(#pgsql_listen_dsn{host=Host, port=Port}) ->
-  list_to_binary(lists:flatten([Host, ":", integer_to_list(Port)])).
+get_pgsql_server(#pgsql_listen_dsn{host = Host, port = Port}) ->
+    list_to_binary(lists:flatten([Host, ":", integer_to_list(Port)])).
 
 %% @private
 %% @spec get_pgsql_port(Value) -> integer()
@@ -485,11 +512,11 @@ get_pgsql_server(#pgsql_listen_dsn{host=Host, port=Port}) ->
 %% @end
 %%
 get_pgsql_port(Value) when is_list(Value) ->
-  list_to_integer(Value);
+    list_to_integer(Value);
 get_pgsql_port(Value) when is_number(Value) ->
-  Value;
+    Value;
 get_pgsql_port(_) ->
-  5432.
+    5432.
 
 %% @private
 %% @spec is_pgsql_listen_exchange(Exchange) -> Result
@@ -500,9 +527,9 @@ get_pgsql_port(_) ->
 %% @end
 %%
 is_pgsql_listen_exchange({exchange, _, 'x-pgsql-listen', _, _, _, _, _, _}) ->
-  true;
+    true;
 is_pgsql_listen_exchange(_) ->
-  false.
+    false.
 
 %% @private
 %% @spec list_find(Element, List) -> Result
@@ -518,9 +545,9 @@ list_find(_, []) ->
 list_find(Element, [Item | ListTail]) ->
     case (Item == Element) of
         true ->
-          true;
+            true;
         false ->
-          list_find(Element, ListTail)
+            list_find(Element, ListTail)
     end.
 
 %% @private
@@ -534,12 +561,12 @@ list_find(Element, [Item | ListTail]) ->
 %% @end
 %%
 listen_to_pgsql_channel(Name, Key, PgSQL) ->
-  case dict:find(Name, PgSQL) of
-    {ok, Conn} ->
-      pgsql_listen_db:listen(Conn#pgsql_listen_conn.pid, Key);
-    error ->
-      {error, "pgsql_listen_lib: connection not found"}
-  end.
+    case dict:find(Name, PgSQL) of
+        {ok, Conn} ->
+            pgsql_listen_db:listen(Conn#pgsql_listen_conn.pid, Key);
+        error ->
+            {error, "pgsql_listen_lib: connection not found"}
+    end.
 
 %% @private
 %% @spec maybe_close_amqp_connection(X, VHost, Channels, AMQP) -> Result
@@ -554,14 +581,13 @@ listen_to_pgsql_channel(Name, Key, PgSQL) ->
 %% @end
 %%
 maybe_close_amqp_connection(X, VHost, Channels, AMQP) ->
-  Xs = lists:flatten([dict:fetch(K, Channels) ||
-                             K <- dict:fetch_keys(Channels)]),
-  case [V || {resource, V, _, _} <- Xs, V =:= VHost] of
-    [] ->
-      stop_amqp_connection(X, VHost, AMQP);
-    _ ->
-      no_change
-  end.
+    Xs = lists:flatten([dict:fetch(K, Channels) || K <- dict:fetch_keys(Channels)]),
+    case [V || {resource, V, _, _} <- Xs, V =:= VHost] of
+        [] ->
+            stop_amqp_connection(X, VHost, AMQP);
+        _ ->
+            no_change
+    end.
 
 %% @private
 %% @spec remove_binding(X, Bs, State) -> Result
@@ -573,26 +599,33 @@ maybe_close_amqp_connection(X, VHost, Channels, AMQP) ->
 %% @doc Remove a binding from the exchange
 %% @end
 %%
-remove_binding(X=#exchange{name=Name},
-               #binding{key=Key, source={resource, VHost, exchange, _}},
-               State=#pgsql_listen_state{amqp=AMQP,
-                                          channels=Cs,
-                                          pgsql=PgSQL}) ->
-  case unlisten_to_pgsql_channel(Name, binary_to_list(Key), PgSQL) of
-    ok ->
-      case remove_channel_binding_reference(binary_to_list(Key), Name, Cs) of
-        {ok, NCs} ->
-          case maybe_close_amqp_connection(X, VHost, NCs, AMQP) of
-            no_change ->
-              {ok, State#pgsql_listen_state{channels=NCs}};
-            {ok, NAMQP} ->
-              {ok, State#pgsql_listen_state{amqp=NAMQP, channels=NCs}};
-            {error, Error} -> {error, Error}
-          end;
-        {error, Error} -> {error, Error}
-      end;
-    {error, Error} -> {error, Error}
-  end.
+remove_binding(
+    X = #exchange{name = Name},
+    #binding{key = Key, source = {resource, VHost, exchange, _}},
+    State = #pgsql_listen_state{
+        amqp = AMQP,
+        channels = Cs,
+        pgsql = PgSQL
+    }
+) ->
+    case unlisten_to_pgsql_channel(Name, binary_to_list(Key), PgSQL) of
+        ok ->
+            case remove_channel_binding_reference(binary_to_list(Key), Name, Cs) of
+                {ok, NCs} ->
+                    case maybe_close_amqp_connection(X, VHost, NCs, AMQP) of
+                        no_change ->
+                            {ok, State#pgsql_listen_state{channels = NCs}};
+                        {ok, NAMQP} ->
+                            {ok, State#pgsql_listen_state{amqp = NAMQP, channels = NCs}};
+                        {error, Error} ->
+                            {error, Error}
+                    end;
+                {error, Error} ->
+                    {error, Error}
+            end;
+        {error, Error} ->
+            {error, Error}
+    end.
 
 %% @private
 %% @spec remove_channel_binding_reference(Channel, X, Channels) -> {ok, dict()}
@@ -605,17 +638,17 @@ remove_binding(X=#exchange{name=Name},
 %% @end
 %%
 remove_channel_binding_reference(Channel, X, Channels) ->
-  case dict:find(Channel, Channels) of
-    {ok, Bindings} ->
-      case list_find(X, Bindings) of
-        true ->
-          {ok, dict:store(Channel, lists:delete(X, Bindings), Channels)};
-        false ->
-          {ok, Channels}
-      end;
-    error ->
-      {ok, Channels}
-  end.
+    case dict:find(Channel, Channels) of
+        {ok, Bindings} ->
+            case list_find(X, Bindings) of
+                true ->
+                    {ok, dict:store(Channel, lists:delete(X, Bindings), Channels)};
+                false ->
+                    {ok, Channels}
+            end;
+        error ->
+            {ok, Channels}
+    end.
 
 %% @private
 %% @spec stop_amqp_connection(X, VHost, AMQP) -> Result
@@ -630,21 +663,19 @@ remove_channel_binding_reference(Channel, X, Channels) ->
 %% @end
 %%
 stop_amqp_connection(X, VHost, AMQP) ->
-  case [E || E <- rabbit_exchange:list(VHost),
-                  E =/= X,
-                  is_pgsql_listen_exchange(X) =:= true] of
-    %% No remaining exchanges for vhost but this one
-    [] ->
-      case dict:find(VHost, AMQP) of
-        {ok, {Connection, Channel}} ->
-          ok = pgsql_listen_amqp:close(Connection, Channel),
-          {ok, dict:erase(VHost, AMQP)};
-        error ->
-          {ok, AMQP}
-        end;
-    _ ->
-      {ok, AMQP}
-  end.
+    case [E || E <- rabbit_exchange:list(VHost), E =/= X, is_pgsql_listen_exchange(X) =:= true] of
+        %% No remaining exchanges for vhost but this one
+        [] ->
+            case dict:find(VHost, AMQP) of
+                {ok, {Connection, Channel}} ->
+                    ok = pgsql_listen_amqp:close(Connection, Channel),
+                    {ok, dict:erase(VHost, AMQP)};
+                error ->
+                    {ok, AMQP}
+            end;
+        _ ->
+            {ok, AMQP}
+    end.
 
 %% @private
 %% @spec stop_pgsql_connection(X, State) -> Result
@@ -655,20 +686,24 @@ stop_amqp_connection(X, VHost, AMQP) ->
 %% it from the connection dict
 %% @end
 %%
-stop_pgsql_connection(#exchange{name=Name},
-                      State=#pgsql_listen_state{pgsql=PgSQL}) ->
-  case dict:find(Name, PgSQL) of
-    {ok, Conn} ->
-      ok = pgsql_listen_db:close(Conn#pgsql_listen_conn.pid),
-      {ok, State#pgsql_listen_state{pgsql=dict:erase(Name, PgSQL)}};
-    {error, Error} ->
-      rabbit_log:error("error finding cached connection for ~p in ~p: ~s~n",
-                       [Name, PgSQL, Error]),
-      {ok, State};
-    Other ->
-      rabbit_log:info("Other clause matched: ~p~n", [Other]),
-      {ok, State}
-  end.
+stop_pgsql_connection(
+    #exchange{name = Name},
+    State = #pgsql_listen_state{pgsql = PgSQL}
+) ->
+    case dict:find(Name, PgSQL) of
+        {ok, Conn} ->
+            ok = pgsql_listen_db:close(Conn#pgsql_listen_conn.pid),
+            {ok, State#pgsql_listen_state{pgsql = dict:erase(Name, PgSQL)}};
+        {error, Error} ->
+            rabbit_log:error(
+                "error finding cached connection for ~p in ~p: ~s~n",
+                [Name, PgSQL, Error]
+            ),
+            {ok, State};
+        Other ->
+            rabbit_log:info("Other clause matched: ~p~n", [Other]),
+            {ok, State}
+    end.
 
 %% @private
 %% @spec unlisten_to_pgsql_channel(Name, Key, PgSQL) -> Result
@@ -681,12 +716,12 @@ stop_pgsql_connection(#exchange{name=Name},
 %% @end
 %%
 unlisten_to_pgsql_channel(Name, Key, PgSQL) ->
-  case dict:find(Name, PgSQL) of
-    {ok, Conn} ->
-      pgsql_listen_db:unlisten(Conn#pgsql_listen_conn.pid, Key);
-    error ->
-      {error, "pgsql_listen_lib: connection not found"}
-  end.
+    case dict:find(Name, PgSQL) of
+        {ok, Conn} ->
+            pgsql_listen_db:unlisten(Conn#pgsql_listen_conn.pid, Key);
+        error ->
+            {error, "pgsql_listen_lib: connection not found"}
+    end.
 
 %% @private
 %% @spec validate_binary_or_none(Name, Value) -> Result
@@ -698,8 +733,8 @@ unlisten_to_pgsql_channel(Name, Key, PgSQL) ->
 %% @end
 %%
 validate_binary_or_none(_, none) ->
-  ok;
+    ok;
 validate_binary_or_none(_, Value) when is_binary(Value) ->
-  ok;
+    ok;
 validate_binary_or_none(Name, Value) ->
-  {error, "~s should be binary, actually was ~p", [Name, Value]}.
+    {error, "~s should be binary, actually was ~p", [Name, Value]}.

@@ -9,10 +9,12 @@
 
 -module(pgsql_listen_db).
 
--export([close/1,
-         connect/1,
-         listen/2,
-         unlisten/2]).
+-export([
+    close/1,
+    connect/1,
+    listen/2,
+    unlisten/2
+]).
 
 -include("pgsql_listen.hrl").
 
@@ -23,7 +25,7 @@
 %% @end
 %%
 close(Conn) ->
-  epgsql:close(Conn).
+    epgsql:close(Conn).
 
 %% @spec connect(DSN) -> Result
 %% @doc Create a new PostgreSQL connection
@@ -32,12 +34,19 @@ close(Conn) ->
 %%       Result = {ok, pid()}|{error, Error}
 %% @end
 %%
-connect(#pgsql_listen_dsn{host=Host, port=Port, user=User,
-                          password=Password, dbname=DBName}) ->
-   epgsql:connect(Host, User, Password, [{database, DBName},
-                                         {port, Port},
-                                         {timeout, 2500},
-                                         {async, self()}]).
+connect(#pgsql_listen_dsn{
+    host = Host,
+    port = Port,
+    user = User,
+    password = Password,
+    dbname = DBName
+}) ->
+    epgsql:connect(Host, User, Password, [
+        {database, DBName},
+        {port, Port},
+        {timeout, 2500},
+        {async, self()}
+    ]).
 
 %% @spec listen(Connection, Channel) -> Result
 %% @where
@@ -48,7 +57,7 @@ connect(#pgsql_listen_dsn{host=Host, port=Port, user=User,
 %% @end
 %%
 listen(Connection, Channel) ->
-  query(Connection, "LISTEN " ++ Channel).
+    query(Connection, "LISTEN " ++ Channel).
 
 %% @spec unlisten(Connection, Channel) -> Result
 %% @where
@@ -59,7 +68,7 @@ listen(Connection, Channel) ->
 %% @end
 %%
 unlisten(Connection, Channel) ->
-  query(Connection, "UNLISTEN " ++ Channel).
+    query(Connection, "UNLISTEN " ++ Channel).
 
 %% @private
 %% @spec query(Connection, SQL) -> Result
@@ -71,9 +80,9 @@ unlisten(Connection, Channel) ->
 %% @end
 %%
 query(Connection, SQL) ->
-  case epgsql:squery(Connection, SQL) of
-    {ok, _} -> ok;
-    {ok, _, _} -> ok;
-    {ok, _, _, _} -> ok;
-    {error, Error} -> {error, Error}
-  end.
+    case epgsql:squery(Connection, SQL) of
+        {ok, _} -> ok;
+        {ok, _, _} -> ok;
+        {ok, _, _, _} -> ok;
+        {error, Error} -> {error, Error}
+    end.
