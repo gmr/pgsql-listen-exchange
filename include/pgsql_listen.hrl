@@ -6,8 +6,8 @@
 
 %% @doc Constants and records for the pgsql-listen exchange
 %% @end
--define(X_TYPE, <<"x-pgsql-listen">>).
--define(X_DESC, <<"PostgreSQL LISTEN Exchange.">>).
+-define(EXCHANGE_TYPE, <<"x-pgsql-listen">>).
+-define(EXCHANGE_DESC, <<"PostgreSQL LISTEN Exchange.">>).
 
 -define(VALIDATE_ERROR,
     "Cannot bind a PgSQL Listen exchange to another PgSQL Listen exchange"
@@ -20,7 +20,7 @@
 -define(DEFAULT_DBNAME, <<"postgres">>).
 
 -record(pgsql_listen_conn, {pid, server, dbname}).
--record(pgsql_listen_dsn, {host, port, user, password, dbname}).
+-record(pgsql_listen_dsn, {host, port, user, password, dbname, ssl}).
 -record(pgsql_listen_state, {amqp, channels, pgsql}).
 -record(properties, {
     app_id,

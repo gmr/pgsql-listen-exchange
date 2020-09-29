@@ -18,58 +18,39 @@
     handle_call/3,
     handle_cast/2,
     handle_info/2,
-    handle_interval/1,
     terminate/2,
     code_change/3
 ]).
 
 -include("pgsql_listen.hrl").
 
-% How long to wait when starting up to see if rabbit_direct_client_sup exists
--define(DEFERRAL_WAIT, 2000).
-
-% -------------------------
-% Worker Startup
-% -------------------------
-
 start_link() ->
-    gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
-    rabbit_log:info("starting pgsql-listen exchange worker.~n"),
-    register(pgsql_listen_worker, self()),
-    {ok, #pgsql_listen_state{amqp = dict:new(), channels = dict:new(), pgsql = dict:new()}}.
-
-% -------------------------
-% Gen Server Implementation
-% -------------------------
+    State = #pgsql_listen_state{
+        amqp = dict:new(),
+        channels = dict:new(),
+        pgsql = dict:new()
+    },
+    {ok, maybe_connect(rabbit_exchange:list(), State)}.
 
 code_change(_, State, _) ->
     {ok, State}.
 
 handle_call({add_binding, X, B}, _From, State) ->
-    case whereis(rabbit_direct_client_sup) of
-        undefined ->
-            defer_call({add_binding, X, B}),
-            {reply, ok, State};
-        _ ->
-            case pgsql_listen_lib:add_binding(X, B, State) of
-                {ok, NState} -> {reply, ok, NState};
-                {error, Error} -> {reply, {error, Error}, {state, State}}
-            end
+    case pgsql_listen_lib:add_binding(X, B, State) of
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        {error, Error} ->
+            {reply, {error, Error}, {state, State}}
     end;
 handle_call({create, X}, _From, State) ->
-    case whereis(rabbit_direct_client_sup) of
-        undefined ->
-            defer_call({create, X}),
-            {reply, ok, State};
-        _ ->
-            case pgsql_listen_lib:start_exchange(X, State) of
-                {ok, NewState} ->
-                    {reply, ok, NewState};
-                {error, Error} ->
-                    {reply, {error, Error}, {state, State}}
-            end
+    case pgsql_listen_lib:start_exchange(X, State) of
+        {ok, NewState} ->
+            {reply, ok, NewState};
+        {error, Error} ->
+            {reply, {error, Error}, {state, State}}
     end;
 handle_call({delete, X, Bs}, _From, State) ->
     case pgsql_listen_lib:remove_bindings(X, Bs, State) of
@@ -97,28 +78,49 @@ handle_call(_Msg, _From, State) ->
     {noreply, unknown_command, State}.
 
 handle_cast(Cast, State) ->
-    rabbit_log:error("pgsql_listen_worker unknown_cast: ~p, ~p~n", [Cast, State]),
+    rabbit_log:error("pgsql_listen_worker unknown_cast: ~p", [Cast]),
     {noreply, State}.
 
 handle_info({epgsql, Conn, {notice, Error}}, State) ->
-    rabbit_log:error("pgsql_listen_worker postgres error: ~p, ~p~n", [Conn, Error]),
+    rabbit_log:error("pgsql_listen_worker postgres error: ~p (~p)", [Conn, Error]),
     {noreply, State};
 handle_info({epgsql, Conn, {notification, Channel, _, Payload}}, State) ->
-    pgsql_listen_lib:publish_notification(Conn, Channel, Payload, State),
-    {noreply, State};
+    {noreply, pgsql_listen_lib:publish_notification(Conn, Channel, Payload, State)};
 handle_info(Message, State) ->
-    rabbit_log:error("pgsql_listen_worker unknown_info: ~p~n", Message),
+    rabbit_log:error("pgsql_listen_worker unknown_info: ~p", [Message]),
     {noreply, State}.
 
 terminate(_, _) ->
     ok.
 
-% -----------------------------
-% Defer any calls to the worker
-% -----------------------------
+% -------------------------
 
-defer_call(Command) ->
-    timer:apply_after(?DEFERRAL_WAIT, ?MODULE, handle_interval, [Command]).
+maybe_connect([X = #exchange{name = Name, type = 'x-pgsql-listen'} | Tail], State) ->
+    case pgsql_listen_lib:start_exchange(X, State) of
+        {ok, NewState} ->
+            maybe_connect(Tail, add_bindings(X, rabbit_binding:list_for_source(Name), NewState));
+        {error, Error} ->
+            rabbit_log:error(
+                "pgsql_listen_exchange startup error for ~p: ~p",
+                [Name, Error]
+            ),
+            maybe_connect(Tail, State)
+    end;
+maybe_connect([_X | Tail], State) ->
+    maybe_connect(Tail, State);
+maybe_connect([], State) ->
+    State.
 
-handle_interval(Command) ->
-    gen_server:call(?MODULE, Command).
+add_bindings(X = #exchange{name = Name}, [H | T], State) ->
+    case pgsql_listen_lib:add_binding(X, H, State) of
+        {ok, NewState} ->
+            add_bindings(X, T, NewState);
+        {error, Error} ->
+            rabbit_log:error(
+                "pgsql_listen_exchange error adding binding ~p: ~p",
+                [Name, Error]
+            ),
+            add_bindings(X, T, State)
+    end;
+add_bindings(_X, [], State) ->
+    State.

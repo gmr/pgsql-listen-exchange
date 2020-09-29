@@ -25,7 +25,7 @@
 %% @end
 %%
 open(VHost) ->
-    AdapterInfo = #amqp_adapter_info{name = <<"pgsql_listen_worker">>},
+    AdapterInfo = #amqp_adapter_info{name = <<"pgsql-listen-exchange">>},
     case
         amqp_connection:start(#amqp_params_direct{
             virtual_host = VHost,

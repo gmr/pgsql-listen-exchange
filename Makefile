@@ -1,4 +1,4 @@
-PROJECT = pgsql-listen-exchange
+PROJECT = pgsql_listen_exchange
 PROJECT_DESCRIPTION = RabbitMQ Exchange that publishes messages received from PostgreSQL Notifications.
 
 define PROJECT_ENV

@@ -16,15 +16,8 @@
     remove_bindings/3,
     start_exchange/2,
     stop_exchange/2,
-    validate_pgsql_connection/1,
-    validate_pgsql_host/1,
-    validate_pgsql_port/1,
-    validate_pgsql_dbname/1,
-    validate_pgsql_user/1,
-    validate_pgsql_password/1
+    validate_pgsql_connection/1
 ]).
-
--include_lib("amqp_client/include/amqp_client.hrl").
 
 -include("pgsql_listen.hrl").
 
@@ -39,20 +32,14 @@
 %%
 add_binding(
     #exchange{name = Name},
-    #binding{key = Key, source = {resource, VHost, exchange, _}},
-    State = #pgsql_listen_state{amqp = AMQP, channels = Cs, pgsql = PgSQL}
+    #binding{key = Key, source = {resource, _, exchange, _}},
+    State = #pgsql_listen_state{channels = Cs, pgsql = PgSQL}
 ) ->
-    case ensure_amqp_connection(VHost, AMQP) of
-        {ok, NAMQP} ->
-            case ensure_channel_binding_references(binary_to_list(Key), Name, Cs) of
-                {ok, NCs} ->
-                    case listen_to_pgsql_channel(Name, binary_to_list(Key), PgSQL) of
-                        ok ->
-                            NS = State#pgsql_listen_state{amqp = NAMQP, channels = NCs},
-                            {ok, NS};
-                        {error, Error} ->
-                            {error, Error}
-                    end;
+    case ensure_channel_binding_references(binary_to_list(Key), Name, Cs) of
+        {ok, NCs} ->
+            case listen_to_pgsql_channel(Name, binary_to_list(Key), PgSQL) of
+                ok ->
+                    {ok, State#pgsql_listen_state{channels = NCs}};
                 {error, Error} ->
                     {error, Error}
             end;
@@ -60,7 +47,7 @@ add_binding(
             {error, Error}
     end.
 
-%% @spec start_exchange(X, State) -> ok
+%% @spec start_exchange(X, State) -> #pgsql_listen_state
 %% @where
 %%       Conn    = pid()
 %%       Channel = list()
@@ -83,9 +70,9 @@ publish_notification(Conn, Channel, Payload, State) ->
     Value = dict:fetch(Key, Connection),
 
     Headers = [
-        {<<"pgsql-channel">>, longstr, Channel},
-        {<<"pgsql-dbname">>, longstr, Value#pgsql_listen_conn.dbname},
-        {<<"pgsql-server">>, longstr, Value#pgsql_listen_conn.server},
+        {<<"postgres-channel">>, longstr, Channel},
+        {<<"postgres-dbname">>, longstr, Value#pgsql_listen_conn.dbname},
+        {<<"postgres-server">>, longstr, Value#pgsql_listen_conn.server},
         {<<"source-exchange">>, longstr, X}
     ],
 
@@ -99,17 +86,24 @@ publish_notification(Conn, Channel, Payload, State) ->
         type = get_binding_longstr(Key, Channel, <<"type">>)
     },
 
-    case dict:find(VHost, State#pgsql_listen_state.amqp) of
-        {ok, {_, Chan}} ->
-            case pgsql_listen_amqp:publish(Chan, X, Channel, Payload, Properties) of
-                ok ->
-                    ok;
-                {error, Error} ->
-                    rabbit_log:error("pgsql_listen_lib publish error: ~p~n", [Error]),
-                    ok
+    case ensure_amqp_connection(VHost, State#pgsql_listen_state.amqp) of
+        {ok, AMQP} ->
+            case dict:find(VHost, AMQP) of
+                {ok, {_, Chan}} ->
+                    case pgsql_listen_amqp:publish(Chan, X, Channel, Payload, Properties) of
+                        ok ->
+                            State#pgsql_listen_state{amqp = AMQP};
+                        {error, Error} ->
+                            rabbit_log:error("pgsql_listen_lib publish error: ~p", [Error]),
+                            State
+                    end;
+                error ->
+                    rabbit_log:error("pgsql_listen_lib publish error: missing_amqp_connection"),
+                    State
             end;
-        error ->
-            ok
+        {error, Error} ->
+            rabbit_log:error("pgsql_listen_lib publish error: ~p", [Error]),
+            State
     end.
 
 %% @spec remove_bindings(X, Bs, State) -> Result
@@ -160,6 +154,7 @@ start_exchange(X, State = #pgsql_listen_state{pgsql = PgSQL}) ->
 stop_exchange(X, State) ->
     stop_pgsql_connection(X, State).
 
+%% @private
 %% @spec validate_pgsql_exchange(X) -> Result
 %% @where
 %%       X      = rabbit_types:exchange()
@@ -174,68 +169,6 @@ validate_pgsql_connection(X) ->
         {error, Error} ->
             {error, Error}
     end.
-
-%% @spec validate_pgsql_dbname(Value) -> Result
-%% @where
-%%       Value  = binary()|none
-%%       Result = ok|{error, Error}
-%% @doc Validate the user specified PostgreSQL dbname is a binary value or none
-%% @end
-%%
-validate_pgsql_dbname(none) ->
-    ok;
-validate_pgsql_dbname(Value) ->
-    validate_binary_or_none("pgsql-listen-dbname", Value).
-
-%% @spec validate_pgsql_host(Value) -> Result
-%% @where
-%%       Value  = binary()|none
-%%       Result = ok|{error, Error}
-%% @doc Validate the user specified PostgreSQL hostname is a binary or none
-%% @end
-%%
-validate_pgsql_host(none) ->
-    ok;
-validate_pgsql_host(Value) ->
-    validate_binary_or_none("pgsql-listen-host", Value).
-
-%% @spec validate_pgsql_password(Value) -> Result
-%% @where
-%%       Value  = binary()|none
-%%       Result = ok|{error, Error}
-%% @doc Validate the user specified PostgreSQL password is a binary or none
-%% @end
-%%
-validate_pgsql_password(none) ->
-    ok;
-validate_pgsql_password(Value) ->
-    validate_binary_or_none("pgsql-listen-password", Value).
-
-%% @spec validate_pgsql_port(Value) -> Result
-%% @where
-%%       Value  = integer()|none
-%%       Result = ok|{error, Error}
-%% @doc Validate the user specified PostgreSQL port is an integer value or none
-%% @end
-%%
-validate_pgsql_port(none) ->
-    ok;
-validate_pgsql_port(Value) when is_number(Value) ->
-    ok;
-validate_pgsql_port(Value) ->
-    {error, "pgsql-listen-port should be a number, actually was ~p", [Value]}.
-
-%% @spec validate_pgsql_user(Value) -> Result
-%% @where
-%%       Value  = binary()|none
-%%       Result = ok|{error, Error}
-%% @doc Validate the user specified PostgreSQL user is a binary value or none
-%% @end
-%%
-validate_pgsql_user(none) ->
-    ok;
-validate_pgsql_user(Value) ->
-    validate_binary_or_none("pgsql-listen-user", Value).
 
 %% ---------------
 %% Private Methods
@@ -258,10 +191,12 @@ ensure_amqp_connection(VHost, AMQP) ->
         error ->
             case pgsql_listen_amqp:open(VHost) of
                 {ok, Connection, Channel} ->
-                    rabbit_log:info('pgsql_listen_amqp_open: ok~n'),
                     {ok, dict:store(VHost, {Connection, Channel}, AMQP)};
                 {error, {{_, {error, Error}}, _}} ->
-                    rabbit_log:info('pgsql_listen_amqp_open: error: ~p~n', [Error]),
+                    rabbit_log:info("pgsql_listen_amqp:open/1 error: ~p", [Error]),
+                    {error, Error};
+                {error, Error} ->
+                    rabbit_log:info("pgsql_listen_amqp:open/1 error: ~p", [Error]),
                     {error, Error}
             end
     end.
@@ -319,7 +254,7 @@ ensure_pgsql_connection(X = #exchange{name = Name}, PgSQL) ->
                             PgSQL
                         )};
                 {error, {{_, {error, Error}}, _}} ->
-                    rabbit_log:info('pgsql_listen_amqp_open: error: ~p~n', [Error]),
+                    rabbit_log:info('pgsql_listen_lib:ensure_pgsql_connection/2 error: ~p', [Error]),
                     {error, Error}
             end
     end.
@@ -696,12 +631,12 @@ stop_pgsql_connection(
             {ok, State#pgsql_listen_state{pgsql = dict:erase(Name, PgSQL)}};
         {error, Error} ->
             rabbit_log:error(
-                "error finding cached connection for ~p in ~p: ~s~n",
+                "error finding cached connection for ~p in ~p: ~s",
                 [Name, PgSQL, Error]
             ),
             {ok, State};
         Other ->
-            rabbit_log:info("Other clause matched: ~p~n", [Other]),
+            rabbit_log:info("Other clause matched unexpectedly: ~p", [Other]),
             {ok, State}
     end.
 
@@ -722,19 +657,3 @@ unlisten_to_pgsql_channel(Name, Key, PgSQL) ->
         error ->
             {error, "pgsql_listen_lib: connection not found"}
     end.
-
-%% @private
-%% @spec validate_binary_or_none(Name, Value) -> Result
-%% @doc Validate the user specified PostgreSQL user is a binary value or none
-%% @where
-%%       Name   = list()
-%%       Value  = binary()|none
-%%       Result = ok|{error, Error}
-%% @end
-%%
-validate_binary_or_none(_, none) ->
-    ok;
-validate_binary_or_none(_, Value) when is_binary(Value) ->
-    ok;
-validate_binary_or_none(Name, Value) ->
-    {error, "~s should be binary, actually was ~p", [Name, Value]}.

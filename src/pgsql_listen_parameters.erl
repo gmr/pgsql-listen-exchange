@@ -22,7 +22,8 @@
     {policy_validator, <<"pgsql-listen-port">>},
     {policy_validator, <<"pgsql-listen-dbname">>},
     {policy_validator, <<"pgsql-listen-user">>},
-    {policy_validator, <<"pgsql-listen-password">>}
+    {policy_validator, <<"pgsql-listen-password">>},
+    {policy_validator, <<"pgsql-listen-ssl">>}
 ]).
 
 -rabbit_boot_step(
@@ -50,11 +51,11 @@ validate_policy(KeyList) ->
     User = proplists:get_value(<<"pgsql-listen-user">>, KeyList, none),
     Password = proplists:get_value(<<"pgsql-listen-password">>, KeyList, none),
     Validation = [
-        pgsql_listen_lib:validate_pgsql_host(Host),
-        pgsql_listen_lib:validate_pgsql_port(Port),
-        pgsql_listen_lib:validate_pgsql_dbname(DBName),
-        pgsql_listen_lib:validate_pgsql_user(User),
-        pgsql_listen_lib:validate_pgsql_password(Password)
+        validate_pgsql_host(Host),
+        validate_pgsql_port(Port),
+        validate_pgsql_dbname(DBName),
+        validate_pgsql_user(User),
+        validate_pgsql_password(Password)
     ],
     case Validation of
         [ok, ok, ok, ok, ok] -> ok;
@@ -64,3 +65,86 @@ validate_policy(KeyList) ->
         [ok, ok, ok, {error, Error, Args}, _] -> {error, Error, Args};
         [ok, ok, ok, ok, {error, Error, Args}] -> {error, Error, Args}
     end.
+
+%% @private
+%% @spec validate_pgsql_dbname(Value) -> Result
+%% @where
+%%       Value  = binary()|none
+%%       Result = ok|{error, Error}
+%% @doc Validate the user specified PostgreSQL dbname is a binary value or none
+%% @end
+%%
+validate_pgsql_dbname(none) ->
+    ok;
+validate_pgsql_dbname(Value) ->
+    validate_binary_or_none("pgsql-listen-dbname", Value).
+
+%% @private
+%% @spec validate_pgsql_host(Value) -> Result
+%% @where
+%%       Value  = binary()|none
+%%       Result = ok|{error, Error}
+%% @doc Validate the user specified PostgreSQL hostname is a binary or none
+%% @end
+%%
+validate_pgsql_host(none) ->
+    ok;
+validate_pgsql_host(Value) ->
+    validate_binary_or_none("pgsql-listen-host", Value).
+
+%% @private
+%% @spec validate_pgsql_password(Value) -> Result
+%% @where
+%%       Value  = binary()|none
+%%       Result = ok|{error, Error}
+%% @doc Validate the user specified PostgreSQL password is a binary or none
+%% @end
+%%
+validate_pgsql_password(none) ->
+    ok;
+validate_pgsql_password(Value) ->
+    validate_binary_or_none("pgsql-listen-password", Value).
+
+%% @private
+%% @spec validate_pgsql_port(Value) -> Result
+%% @where
+%%       Value  = integer()|none
+%%       Result = ok|{error, Error}
+%% @doc Validate the user specified PostgreSQL port is an integer value or none
+%% @end
+%%
+validate_pgsql_port(none) ->
+    ok;
+validate_pgsql_port(Value) when is_number(Value) ->
+    ok;
+validate_pgsql_port(Value) ->
+    {error, "pgsql-listen-port should be a number, actually was ~p", [Value]}.
+
+%% @private
+%% @spec validate_pgsql_user(Value) -> Result
+%% @where
+%%       Value  = binary()|none
+%%       Result = ok|{error, Error}
+%% @doc Validate the user specified PostgreSQL user is a binary value or none
+%% @end
+%%
+validate_pgsql_user(none) ->
+    ok;
+validate_pgsql_user(Value) ->
+    validate_binary_or_none("pgsql-listen-user", Value).
+
+%% @private
+%% @spec validate_binary_or_none(Name, Value) -> Result
+%% @doc Validate the user specified PostgreSQL user is a binary value or none
+%% @where
+%%       Name   = list()
+%%       Value  = binary()|none
+%%       Result = ok|{error, Error}
+%% @end
+%%
+validate_binary_or_none(_, none) ->
+    ok;
+validate_binary_or_none(_, Value) when is_binary(Value) ->
+    ok;
+validate_binary_or_none(Name, Value) ->
+    {error, "~s should be binary, actually was ~p", [Name, Value]}.

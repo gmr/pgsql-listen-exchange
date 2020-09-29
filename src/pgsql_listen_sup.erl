@@ -9,32 +9,29 @@
 
 -module(pgsql_listen_sup).
 
--behaviour(supervisor2).
-
--define(WORKER, pgsql_listen_worker).
+-behaviour(supervisor).
 
 -export([init/1, start_link/0, stop/0]).
 
 -rabbit_boot_step(
-    {pgsql_listen_supervisor, [
-        {description, "PgSQL Listen Supervisor"},
+    {pgsql_listen_sup, [
+        {description, "pgsql-listen-exchange Supervisor"},
         {mfa, {rabbit_sup, start_child, [?MODULE]}},
-        {requires, kernel_ready},
-        {cleanup, {?MODULE, stop, []}},
-        {enables, pgsql_listen_exchange}
+        {requires, direct_client},
+        {enables, rabbit_exchange_type_pgsql_listen},
+        {cleanup, {?MODULE, stop, []}}
     ]}
 ).
 
--include_lib("rabbit_common/include/rabbit.hrl").
-
 start_link() ->
-    rabbit:maybe_insert_default_data(),
-    supervisor2:start_link({local, ?MODULE}, ?MODULE, []).
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
     {ok,
         {{one_for_one, 3, 10}, [
-            {?WORKER, {?WORKER, start_link, []}, transient, ?MAX_WAIT, worker, [?WORKER]}
+            {pgsql_listen_worker, {pgsql_listen_worker, start_link, []}, permanent, 5000, worker, [
+                pgsql_listen_worker
+            ]}
         ]}}.
 
 stop() ->
