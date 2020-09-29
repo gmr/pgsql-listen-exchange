@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v1
       - name: Run tests
-        run: make tests
+        run: make test-dist && make tests
         env:
           POSTGRES_HOST: postgres
           POSTGRES_PORT: 5432

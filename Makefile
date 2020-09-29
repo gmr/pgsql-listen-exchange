@@ -3,8 +3,8 @@ PROJECT_DESCRIPTION = RabbitMQ Exchange that publishes messages received from Po
 
 define PROJECT_ENV
 [
-	    {exchange, <<"x-pgsql-listen">>}
-	  ]
+	{exchange, <<"x-pgsql-listen">>}
+]
 endef
 
 DEPS = rabbit_common rabbit amqp_client epgsql
