@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v1
+      - name: Add dependencies
+        run: apt-get install -y rsync
       - name: Run tests
         run: make test-dist && make tests
         env:
