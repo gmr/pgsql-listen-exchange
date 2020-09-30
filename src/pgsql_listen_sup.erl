@@ -9,9 +9,9 @@
 
 -module(pgsql_listen_sup).
 
--behaviour(supervisor).
+-behaviour(mirrored_supervisor).
 
--export([init/1, start_link/0, stop/0]).
+-export([init/1, start_link/0]).
 
 -rabbit_boot_step(
     {pgsql_listen_sup, [
@@ -24,16 +24,18 @@
 ).
 
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    mirrored_supervisor:start_link({local, ?MODULE}, ?MODULE,
+                                   fun rabbit_misc:execute_mnesia_transaction/1,
+                                   ?MODULE, []).
 
 init([]) ->
     {ok,
-        {{one_for_one, 3, 10}, [
-            {pgsql_listen_worker, {pgsql_listen_worker, start_link, []}, permanent, 5000, worker, [
-                pgsql_listen_worker
-            ]}
-        ]}}.
-
-stop() ->
-    ok = supervisor:terminate_child(rabbit_sup, ?MODULE),
-    ok = supervisor:delete_child(rabbit_sup, ?MODULE).
+        {
+            {one_for_one, 3, 10},
+            [{
+                pgsql_listen_worker,
+                {pgsql_listen_worker, start_link, []},
+                permanent, 5000, worker, [pgsql_listen_worker]
+            }]
+        }
+    }.
