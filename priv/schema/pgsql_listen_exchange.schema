@@ -1,0 +1,23 @@
+%% ----------------------------------------------------------------------------
+%% PostgreSQL Listen Exchange
+%% ----------------------------------------------------------------------------
+
+%% {pgsql_listen_exchange,
+%%  [
+%%   {host, "localhost"},
+%%   {port, 5432},
+%%   {dbname, "postgres"},
+%%   {user, "postgres"},
+%%   {password, ""}
+%% ]}
+
+{mapping, "host", "pgsql_listen_exchange.host", [{datatype, string}]}.
+{mapping, "port", "pgsql_listen_exchange.port", [{datatype, integer}, {validators, ["port"]}]}.
+{mapping, "dbname", "pgsql_listen_exchange.host", [{datatype, string}]}.
+{mapping, "user", "pgsql_listen_exchange.user", [{datatype, string}]}.
+{mapping, "password, "pgsql_listen_exchange.password", [{datatype, string}]}.
+
+{validator, "port", "Invalid port number",
+fun(Port) when is_integer(Port) ->
+    Port > 0 andalso Port < 65535
+end}.
