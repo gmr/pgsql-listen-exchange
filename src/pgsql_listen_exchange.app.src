@@ -1,6 +1,6 @@
 {application, pgsql_listen_exchange, [
     {description, "RabbitMQ PostgreSQL LISTEN Exchange Plugin"},
-    {vsn, "1.0.0"},
+    {vsn, "1.0.0a1"},
     {modules, []},
     {registered, []},
     {env, [
