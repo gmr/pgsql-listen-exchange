@@ -5,7 +5,7 @@ messages and publishes them to bound queues. The PostgreSQL NOTIFY message chann
 is used as the routing key for the message using direct exchange style routing
 mechanics.
 
-.. |Status| image:: https://github.com/gmr/pgsql-listen-exchange/workflows/Testing/badge.svg?
+.. image:: https://github.com/gmr/pgsql-listen-exchange/workflows/Testing/badge.svg?
    :target: https://github.com/gmr/pgsql-listen-exchange/actions?workflow=Testing
    :alt: Build Status
 
