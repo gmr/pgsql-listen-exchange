@@ -5,10 +5,12 @@ messages and publishes them to bound queues. The PostgreSQL NOTIFY message chann
 is used as the routing key for the message using direct exchange style routing
 mechanics.
 
-.. image:: https://img.shields.io/travis/aweber/pgsql-listen-exchange.svg
-    :target: https://travis-ci.org/aweber/pgsql-listen-exchange
-.. image:: https://img.shields.io/github/release/aweber/pgsql-listen-exchange.svg
-    :target: https://github.com/aweber/pgsql-listen-exchange/releases
+.. |Status| image:: https://github.com/gmr/pgsql-listen-exchange/workflows/Testing/badge.svg?
+   :target: https://github.com/gmr/pgsql-listen-exchange/actions?workflow=Testing
+   :alt: Build Status
+
+.. image:: https://img.shields.io/github/release/gmr/pgsql-listen-exchange.svg
+    :target: https://github.com/gmr/pgsql-listen-exchange/releases
 
 Example
 -------
