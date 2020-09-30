@@ -254,7 +254,13 @@ ensure_pgsql_connection(X = #exchange{name = Name}, PgSQL) ->
                             PgSQL
                         )};
                 {error, {{_, {error, Error}}, _}} ->
-                    rabbit_log:info('pgsql_listen_lib:ensure_pgsql_connection/2 error: ~p', [Error]),
+                    rabbit_log:error('pgsql_listen_lib:ensure_pgsql_connection/2 error: ~p', [Error]),
+                    {error, Error};
+                {error, {{_, {{_, [{{{_,{error,Error}}, _}, _}]}, _}}, _}} ->
+                    rabbit_log:error('pgsql_listen_lib:ensure_pgsql_connection/2 error: ~p', [Error]),
+                    {error, Error};
+                {error, Error} ->
+                    rabbit_log:error('pgsql_listen_lib:ensure_pgsql_connection/2 error: ~p', [Error]),
                     {error, Error}
             end
     end.
