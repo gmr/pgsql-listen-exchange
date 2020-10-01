@@ -193,10 +193,10 @@ ensure_amqp_connection(VHost, AMQP) ->
                 {ok, Connection, Channel} ->
                     {ok, dict:store(VHost, {Connection, Channel}, AMQP)};
                 {error, {{_, {error, Error}}, _}} ->
-                    rabbit_log:info("pgsql_listen_amqp:open/1 error: ~p", [Error]),
+                    rabbit_log:error("pgsql_listen_amqp:open/1 error: ~p", [Error]),
                     {error, Error};
                 {error, Error} ->
-                    rabbit_log:info("pgsql_listen_amqp:open/1 error: ~p", [Error]),
+                    rabbit_log:error("pgsql_listen_amqp:open/1 error: ~p", [Error]),
                     {error, Error}
             end
     end.
@@ -256,7 +256,7 @@ ensure_pgsql_connection(X = #exchange{name = Name}, PgSQL) ->
                 {error, {{_, {error, Error}}, _}} ->
                     rabbit_log:error('pgsql_listen_lib:ensure_pgsql_connection/2 error: ~p', [Error]),
                     {error, Error};
-                {error, {{_, {{_, [{{{_,{error,Error}}, _}, _}]}, _}}, _}} ->
+                {error, {{_, {{_, [{{{_, {error, Error}}, _}, _}]}, _}}, _}} ->
                     rabbit_log:error('pgsql_listen_lib:ensure_pgsql_connection/2 error: ~p', [Error]),
                     {error, Error};
                 {error, Error} ->
@@ -315,7 +315,7 @@ get_binding_args(Exchange, Channel) ->
 %% @private
 %% @spec get_env(EnvVar, DefaultValue) -> Value
 %% @where
-%%       Name         = list()
+%%       EnvVar       = atom()
 %%       DefaultValue = mixed
 %%       Value        = mixed
 %% @doc Return the environment variable defined for pgsql_listen returning the
@@ -323,7 +323,7 @@ get_binding_args(Exchange, Channel) ->
 %% @end
 %%
 get_env(EnvVar, DefaultValue) ->
-    case application:get_env(pgsql_listen, EnvVar) of
+    case application:get_env(pgsql_listen_exchange, EnvVar) of
         undefined ->
             DefaultValue;
         {ok, V} ->
@@ -642,7 +642,7 @@ stop_pgsql_connection(
             ),
             {ok, State};
         Other ->
-            rabbit_log:info("Other clause matched unexpectedly: ~p", [Other]),
+            rabbit_log:error("Other clause matched unexpectedly: ~p", [Other]),
             {ok, State}
     end.
 
