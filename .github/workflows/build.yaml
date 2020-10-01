@@ -13,10 +13,10 @@ jobs:
         uses: actions/checkout@v1
       - name: Build artifact
         run: |-
-          make dist
-          tar cvfz pgsql-listen-exchange-${{ github.ref }}.tar.gz plugins/epgsql-* plugins/pgsql_listen_exchange-${{ github.ref }}
           apt-get update
           apt-get install -y rsync
+          make dist
+          tar cvfz pgsql-listen-exchange-${{ github.ref }}.tar.gz plugins/epgsql-* plugins/pgsql_listen_exchange-${{ github.ref }}
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
