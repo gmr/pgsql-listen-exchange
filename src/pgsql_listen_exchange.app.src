@@ -3,13 +3,7 @@
     {vsn, "1.0.0a1"},
     {modules, []},
     {registered, []},
-    {env, [
-        {host, <<"localhost">>},
-        {port, 5432},
-        {dbname, <<"postgres">>},
-        {password, <<"">>},
-        {user, <<"postgres">>}
-    ]},
+    {env, []},
     {applications, [kernel, stdlib, rabbit, epgsql, amqp_client]},
     {broker_version_requirements, ["3.8.0"]}
 ]}.
