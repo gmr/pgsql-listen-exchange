@@ -24,18 +24,26 @@
 ).
 
 start_link() ->
-    mirrored_supervisor:start_link({local, ?MODULE}, ?MODULE,
-                                   fun rabbit_misc:execute_mnesia_transaction/1,
-                                   ?MODULE, []).
+    mirrored_supervisor:start_link(
+        {local, ?MODULE},
+        ?MODULE,
+        fun rabbit_misc:execute_mnesia_transaction/1,
+        ?MODULE,
+        []
+    ).
 
 init([]) ->
     {ok,
         {
             {one_for_one, 3, 10},
-            [{
-                pgsql_listen_worker,
-                {pgsql_listen_worker, start_link, []},
-                permanent, 5000, worker, [pgsql_listen_worker]
-            }]
-        }
-    }.
+            [
+                {
+                    pgsql_listen_worker,
+                    {pgsql_listen_worker, start_link, []},
+                    permanent,
+                    5000,
+                    worker,
+                    [pgsql_listen_worker]
+                }
+            ]
+        }}.
