@@ -11,20 +11,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v1
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
       - name: Build artifact
         run: |-
+          echo "Building v${{ steps.get_version.outputs.VERSION }}"
           apt-get update
           apt-get install -y rsync
           make dist
-          tar cvfz pgsql-listen-exchange-${GITHUB_REF:10}.tar.gz plugins/epgsql-* plugins/pgsql_listen_exchange-${GITHUB_REF:10}
+          tar cvfz pgsql-listen-exchange-${{ steps.get_version.outputs.VERSION }}.tar.gz plugins/epgsql-* plugins/pgsql_listen_exchange-${{ steps.get_version.outputs.VERSION }}
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${GITHUB_REF:10}
-          release_name: v${GITHUB_REF:10}
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: v${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
       - name: Upload Release Asset
@@ -34,6 +38,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./pgsql-listen-exchange-${GITHUB_REF:10}.tar.gz
-          asset_name: pgsql-listen-exchange-${GITHUB_REF:10}.tar.gz
+          asset_path: ./pgsql-listen-exchange-${{ steps.get_version.outputs.VERSION }}.tar.gz
+          asset_name: pgsql-listen-exchange-${{ steps.get_version.outputs.VERSION }}.tar.gz
           asset_content_type: application/x-tgz
