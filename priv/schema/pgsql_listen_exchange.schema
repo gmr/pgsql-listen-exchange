@@ -13,7 +13,7 @@
 
 {mapping, "host", "pgsql_listen_exchange.host", [{datatype, string}]}.
 {mapping, "port", "pgsql_listen_exchange.port", [{datatype, integer}, {validators, ["port"]}]}.
-{mapping, "dbname", "pgsql_listen_exchange.host", [{datatype, string}]}.
+{mapping, "dbname", "pgsql_listen_exchange.dbname", [{datatype, string}]}.
 {mapping, "user", "pgsql_listen_exchange.user", [{datatype, string}]}.
 {mapping, "password", "pgsql_listen_exchange.password", [{datatype, string}]}.
 
